@@ -6,7 +6,6 @@ Vue.use(vueCompositionApi.default);
 
 
 
-
 //======================================================
 
 //                    RUNESCAPE DATA
@@ -150,7 +149,7 @@ let accountConfigs = [
     attack: 1,
     strength: 1,
     defence: 75,
-    hitpoints: 99,
+    hitpoints: 61,
     prayer: 1,
     ranged: 1,
     magic: 1 } }];
@@ -313,10 +312,9 @@ new Vue({
   setup() {
 
 
-
+    // Icon methods
     let lockIcon = val => val ? 'mdi-lock' : 'mdi-lock-open-variant-outline';
     let checkIcon = val => val ? 'mdi-check-bold' : 'mdi-close';
-
 
 
     const playerStats = reactive({
@@ -344,9 +342,6 @@ new Vue({
     //----------------------------------------------
     // Combat Calc
     function makeCombatCalc() {
-
-
-
 
       let levelToXp = level => {
         let lvlData = rsLevelsRaw.find(item => item[0] === level);
@@ -549,7 +544,7 @@ new Vue({
 
     //----------------------------------------------
     // Make Radar Graph 
-    let order = ['attack', 'strength', 'prayer', 'defence', 'hitpoints', 'magic', 'ranged'];
+    let order = ['strength', 'attack', 'prayer', 'defence', 'hitpoints', 'magic', 'ranged'];
     let chartData = computed(() => {
       return {
         labels: order,
@@ -577,7 +572,7 @@ new Vue({
         ranged: [],
         magic: [] });
 
-      let standardLvls = [1, 40, 60, 70, 92];
+      let standardLvls = [1, 40, 60, 70];
       let tickLabels = [];
       for (let i = 1; i <= 99; ++i) {
         //*
@@ -605,12 +600,8 @@ new Vue({
 
 
 
-
-
-
-    let { isActive: isLiveStatSync, toggle: toggleLiveStatSync } = makeToggleWatch(true, playerStats, combatCalc.applyStatsToCalc);
-
-
+    // Make a toggle to sync the player stats to the calculator
+    let { isActive: isLiveStatSync, toggle: toggleLiveStatSync } = makeLiveSync(true, combatCalc.stats, playerStats);
 
 
 
