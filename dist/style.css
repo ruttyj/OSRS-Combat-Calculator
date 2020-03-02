@@ -1,0 +1,14 @@
+[v-cloak] {display: none}
+
+
+td.skill_slider_cell {
+  padding-bottom: 20px;
+}
+
+td.skill_label{
+  width: 100px;
+}
+
+td.skill_actions{
+  width: 50px;
+}

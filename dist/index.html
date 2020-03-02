@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>CodePen - OSRS Combat Calculator - Vue Composition API</title>
+  <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900'>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css'>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Material+Icons'>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/vuetify@2.2.15/dist/vuetify.min.css'><link rel="stylesheet" href="./style.css">
+
+</head>
+<body>
+<!-- partial:index.partial.html -->
+<div id="app">
+  <script type="text/x-template" id="stat-input">
+    <v-row>
+          <v-col>
+              <v-text-field
+                            v-model="playerStats.attack"
+                            class="mt-0 pt-0"
+                            label="Attack"
+                            type="number"
+                            filled
+                            ></v-text-field>
+              <v-text-field
+                            v-model="playerStats.strength"
+                            class="mt-0 pt-0"
+                            label="Strength"
+                            type="number"
+                            filled
+                            ></v-text-field>
+            </v-col>
+            <v-col>
+            <v-text-field
+                            v-model="playerStats.defence"
+                            class="mt-0 pt-0"
+                            label="Defence"
+                            type="number"
+                            filled
+                            ></v-text-field>
+            <v-text-field
+                            v-model="playerStats.hitpoints"
+                            class="mt-0 pt-0"
+                            label="Hitpoints"
+                            type="number"
+                            filled
+                            ></v-text-field>
+            <v-text-field
+                            v-model="playerStats.prayer"
+                            class="mt-0 pt-0"
+                            label="Prayer"
+                            type="number"
+                            filled
+                            ></v-text-field>
+            </v-col>
+            <v-col>
+            <v-text-field
+                            v-model="playerStats.ranged"
+                            class="mt-0 pt-0"
+                            label="Ranged"
+                            type="number"
+                            filled
+                            ></v-text-field>
+            <v-text-field
+                            v-model="playerStats.magic"
+                            class="mt-0 pt-0"
+                            label="Magic"
+                            type="number"
+                            filled
+                            ></v-text-field>
+            </v-col>  
+                
+                
+            </v-text-field>
+          </v-col>
+        </v-row>
+  </script>
+  
+  
+  <v-app id="inspire" v-cloak>
+    
+    <v-card flat color="transparent">
+      <v-subheader><h1>Player Stats</h1></v-subheader>
+      <v-card-text>
+        <template v-for="config in accountConfigs">
+          <v-btn color="primary" class="ma-1" @click="applyStatsToPlayer(config.stats)">{{config.name}}</v-btn>
+        </template>
+        <player-stats :player-stats.sync="playerStats"></player-stats>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn @click="toggleLiveStatSync()"><v-icon>{{checkIcon(isLiveStatSync)}}</v-icon> Live Stats</v-btn>
+        <v-btn color="primary" @click="applyStatsToCalc(playerStats)">Use Stats</v-btn>
+      </v-card-actions>
+    </v-card>
+    
+    
+    
+    
+    
+    <v-card flat color="transparent">
+      <v-subheader>
+        <h1>
+          Combat: {{cmbLvl}}
+        </h1>
+      </v-subheader>
+      <v-card-text>
+        <v-switch v-model="showLabels" label="Show notable levels"></v-switch>
+        <v-row cols="12">
+          <v-col lg="6">
+            <v-simple-table
+              :fixed-header="true"
+            >
+              <template v-slot:default>
+                <tbody>
+                  <tr>
+                    <td :colspan="maxSpan" class="pt-4">
+                      <h2>Meele</h2>
+                      <v-checkbox v-model="syncDistanceToMeele" label="Sync Distance to Meele"></v-checkbox>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="skill_actions">
+                      <v-btn icon @click="lockedStats[`attack`] = !lockedStats[`attack`]"><v-icon>{{lockIcon(lockedStats[`attack`])}}</v-icon></v-btn>
+                    </td>
+                    <td class="skill_label">
+                      Attack
+                    </td>
+                    <td class="skill_slider_cell">
+                      <v-slider
+                        v-model="stats.attack"
+                        :disabled="lockedStats[`attack`]"
+                        class="align-center"
+                        :min="min"
+                        :max="max"
+                        :tick-Labels="!showLabels ? [] : statTickLabels.attack"
+                        :tick-size="tickSize"
+                        hide-details
+                      >
+                        <template v-slot:append>
+                          <v-text-field
+                            v-model="stats.attack"
+                            :disabled="lockedStats[`attack`]"
+                            class="mt-0 pt-0"
+                            hide-details
+                            single-line
+                            type="number"
+                            style="width: 60px"
+                          ></v-text-field>
+                        </template>
+                      </v-slider>
+                    </td>
+                  </tr>
+
+
+                  <tr>
+                    <td class="skill_actions">
+                      <v-btn icon @click="lockedStats[`strength`] = !lockedStats[`strength`]"><v-icon>{{lockIcon(lockedStats[`strength`])}}</v-icon></v-btn>
+                    </td>
+                    <td class="skill_label">
+                      Strength
+                    </td>
+                    <td class="skill_slider_cell">
+                      <v-slider
+                        v-model="stats.strength"
+                        class="align-center"
+                        :disabled="lockedStats[`strength`]"
+                        :tick-Labels="!showLabels ? [] : statTickLabels.strength"
+                        :tick-size="tickSize"
+                        :max="max"
+                        :min="min"
+                        hide-details
+                      >
+                        <template v-slot:append>
+                          <v-text-field
+                            v-model="stats.strength"
+                            class="mt-0 pt-0"
+                            :disabled="lockedStats[`strength`]"
+                            hide-details
+                            single-line
+                            type="number"
+                            style="width: 60px"
+                          ></v-text-field>
+                        </template>
+                      </v-slider>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td :colspan="maxSpan">
+                      <h2>Base</h2>
+                    </td>
+                  </tr>
+
+
+
+                  <tr>
+                    <td class="skill_actions">
+                      <v-btn icon @click="lockedStats[`defence`] = !lockedStats[`defence`]"><v-icon>{{lockIcon(lockedStats[`defence`])}}</v-icon></v-btn>
+                    </td>
+                    <td class="skill_label">
+                      Defence
+                    </td>
+                    <td class="skill_slider_cell">
+                      <v-slider
+                        v-model="stats.defence"
+                        :disabled="lockedStats[`defence`]"
+                        class="align-center"
+                        :max="max"
+                        :min="min"
+                        :tick-Labels="!showLabels ? [] : statTickLabels.defence"
+                        :tick-size="tickSize"
+                        hide-details
+                      >
+                        <template v-slot:append>
+                          <v-text-field
+                            v-model="stats.defence"
+                            :disabled="lockedStats[`defence`]"
+                            class="mt-0 pt-0"
+                            hide-details
+                            single-line
+                            type="number"
+                            style="width: 60px"
+                          ></v-text-field>
+                        </template>
+                      </v-slider>
+                    </td>
+                  </tr>
+
+
+
+
+                  <tr>
+                    <td class="skill_actions">
+                      <v-btn icon @click="lockedStats[`hitpoints`] = !lockedStats[`hitpoints`]"><v-icon>{{lockIcon(lockedStats[`hitpoints`])}}</v-icon></v-btn>
+                    </td>
+                    <td class="skill_label">
+                      Hitpoints
+                    </td>
+                    <td class="skill_slider_cell">
+                      <v-slider
+                        v-model="stats.hitpoints"
+                        class="align-center"
+                        :disabled="lockedStats[`hitpoints`]"
+                        :tick-Labels="!showLabels ? [] : statTickLabels.hitpoints"
+                        :tick-size="tickSize"
+                        :max="max"
+                        :min="hpMin"
+                        hide-details
+                      >
+                        <template v-slot:append>
+                          <v-text-field
+                            v-model.lazy="stats.hitpoints"
+                            :disabled="lockedStats[`hitpoints`]"
+                            class="mt-0 pt-0"
+                            hide-details
+                            single-line
+                            type="number"
+                            :max="max"
+                            :min="hpMin"
+                            style="width: 60px"
+                          ></v-text-field>
+                        </template>
+                      </v-slider>
+                    </td>
+                  </tr>
+
+
+                  <tr>
+                    <td class="skill_actions">
+                      <v-btn icon @click="lockedStats[`prayer`] = !lockedStats[`prayer`]"><v-icon>{{lockIcon(lockedStats[`prayer`])}}</v-icon></v-btn>
+                    </td>
+                    <td class="skill_label">
+                      Prayer
+                    </td>
+                    <td class="skill_slider_cell">
+                      <v-slider
+                        v-model="stats.prayer"
+                        class="align-center"
+                        :tick-Labels="!showLabels ? [] : statTickLabels.prayer"
+                        :tick-size="tickSize"
+                        :disabled="lockedStats[`prayer`]"
+                        :max="max"
+                        :min="min"
+                        hide-details
+                      >
+                        <template v-slot:append>
+                          <v-text-field
+                            v-model="stats.prayer"
+                            :disabled="lockedStats[`prayer`]"
+                            class="mt-0 pt-0"
+                            hide-details
+                            single-line
+                            type="number"
+                            style="width: 60px"
+                          ></v-text-field>
+                        </template>
+                      </v-slider>
+                    </td>
+                  </tr>
+
+
+
+                  <tr>
+                    <td :colspan="maxSpan" class="pt-4">
+                      <h2>Distance</h2>
+                      <p>Can be lvl {{distanceOffenceEquivalent}} in any of the following without affecting combat level.</p>
+                      <v-checkbox v-model="syncMeeleToDistance" label="Sync Meele to Distance"></v-checkbox>
+                    </td>
+                  </tr>
+
+
+                  <tr>
+                    <td rowspan="2" class="skill_actions">
+                      <v-btn icon @click="toggleLinkDistance" :input-value="linkDistance">
+                        <v-icon>mdi-link</v-icon>
+                      </v-btn>
+                    </td>
+                    <td class="skill_label">
+                      Ranged
+                    </td>
+                    <td class="skill_slider_cell">
+                      <v-slider
+                        v-model="stats.ranged"
+                        class="align-center"
+                        :max="max"
+                        :min="min"
+                        :tick-Labels="!showLabels ? [] : statTickLabels.ranged"
+                        :tick-size="tickSize"
+                        hide-details
+                      >
+                        <template v-slot:append>
+                          <v-text-field
+                            v-model="stats.ranged"
+                            class="mt-0 pt-0"
+                            hide-details
+                            single-line
+                            type="number"
+                            style="width: 60px"
+                          ></v-text-field>
+                        </template>
+                      </v-slider>
+                    </td>
+                  </tr>
+
+
+                  <tr>
+                    <td class="skill_label">
+                      magic
+                    </td>
+                    <td class="skill_slider_cell">
+                      <v-slider
+                        v-model="stats.magic"
+                        class="align-center"
+                        :max="max"
+                        :min="min"
+                        :tick-Labels="!showLabels ? [] : statTickLabels.magic"
+                        :tick-size="tickSize"
+                        hide-details
+                      >
+                        <template v-slot:append>
+                          <v-text-field
+                            v-model="stats.magic"
+                            class="mt-0 pt-0"
+                            hide-details
+                            single-line
+                            type="number"
+                            style="width: 60px"
+                          ></v-text-field>
+                        </template>
+                      </v-slider>
+                    </td>
+                  </tr>
+
+
+
+                  <tr>
+                    <td :colspan="maxSpan">
+                    </td>
+                  </tr>
+
+
+                </tbody>
+              </template>
+            </v-simple-table>
+            
+          </v-col>
+          <v-col lg="6">
+            <canvas id="myChart" width="400" height="400"></canvas>  
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
+  </v-app>
+</div>
+<!-- partial -->
+  <script src='https://cdn.jsdelivr.net/npm/babel-polyfill/dist/polyfill.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/vuetify@2.2.15/dist/vuetify.min.js'></script>
+<script src='https://unpkg.com/@vue/composition-api@0.3.1/dist/vue-composition-api.umd.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js'></script><script  src="./script.js"></script>
+
+</body>
+</html>
