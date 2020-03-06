@@ -1,0 +1,42 @@
+meele offense
+    4 strength or attack
+    1.33xp hp
+
+meele defense 
+    4xp defense
+    1.33xp defense
+
+meele controled
+    1.33xp attack, strength, hitpoints, defense 
+
+//-------------------------------
+
+ranged util
+    pure ranged
+
+ranged offense
+    4xp ranged
+    1.33xp hitpoints
+
+ranged defense
+    2xp ranged 
+    2xp defense 
+    1.33xp hitpoints
+
+//-------------------------------
+
+magic util 
+    pure magic
+
+magic offense
+    2xp magic 
+    1.33xp hitpoints
+
+magic defense 
+    1.33xp magic 
+    1xp defense 
+    1.33xp hitpoints
+
+
+
+###

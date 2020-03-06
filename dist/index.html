@@ -2,7 +2,7 @@
 <html lang="en" >
 <head>
   <meta charset="UTF-8">
-  <title>CodePen - OSRS Combat Calculator - Vue Composition API</title>
+  <title>CodePen - OSRS Combat Calculator - Vue Composition API (Work in progress) </title>
   <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900'>
 <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css'>
 <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Material+Icons'>
@@ -12,62 +12,105 @@
 <body>
 <!-- partial:index.partial.html -->
 <div id="app">
+  <!-- Stat Icon Template -->
+  <script type="text/x-template" id="stat-icon">
+    <div style="width: 25px; height: 25px; text-align: center;">
+      <img :src="src"/>
+    </div>
+  </script>
+  
+  <!-- Player Stats Template -->
   <script type="text/x-template" id="stat-input">
     <v-row>
           <v-col>
               <v-text-field
-                            v-model="playerStats.attack"
+                            :value="playerStats.attack"
+                            @input="updateAttr('attack', $event)"
                             class="mt-0 pt-0"
                             label="Attack"
                             type="number"
                             filled
-                            ></v-text-field>
+                            >
+                <template v-slot:prepend>
+                  <stat-icon :src="skillIcons.getIcon('attack')"/>
+                </template>
+              </v-text-field>
               <v-text-field
-                            v-model="playerStats.strength"
+                            :value="playerStats.strength"
+                            @input="updateAttr('strength', $event)"
                             class="mt-0 pt-0"
                             label="Strength"
                             type="number"
                             filled
-                            ></v-text-field>
+                            >
+                <template v-slot:prepend>
+                  <stat-icon :src="skillIcons.getIcon('strength')"/>
+                </template>
+              </v-text-field>
             </v-col>
             <v-col>
             <v-text-field
-                            v-model="playerStats.defence"
+                            :value="playerStats.defence"
+                            @input="updateAttr('defence', $event)"
                             class="mt-0 pt-0"
                             label="Defence"
                             type="number"
                             filled
-                            ></v-text-field>
+                            >
+                <template v-slot:prepend>
+                  <stat-icon :src="skillIcons.getIcon('defence')"/>
+                </template>
+              </v-text-field>
             <v-text-field
-                            v-model="playerStats.hitpoints"
+                            :value="playerStats.hitpoints"
+                            @input="updateAttr('hitpoints', $event)"
                             class="mt-0 pt-0"
                             label="Hitpoints"
                             type="number"
                             filled
-                            ></v-text-field>
+                            >
+                <template v-slot:prepend>
+                  <stat-icon :src="skillIcons.getIcon('hitpoints')"/>
+                </template>
+              </v-text-field>
             <v-text-field
-                            v-model="playerStats.prayer"
+                            :value="playerStats.prayer"
+                            @input="updateAttr('prayer', $event)"
                             class="mt-0 pt-0"
                             label="Prayer"
                             type="number"
                             filled
-                            ></v-text-field>
+                            >
+                <template v-slot:prepend>
+                  <stat-icon :src="skillIcons.getIcon('prayer')"/>
+                </template>
+              </v-text-field>
             </v-col>
             <v-col>
             <v-text-field
-                            v-model="playerStats.ranged"
+                            :value="playerStats.ranged"
+                            @input="updateAttr('ranged', $event)"
                             class="mt-0 pt-0"
                             label="Ranged"
                             type="number"
                             filled
-                            ></v-text-field>
+                            >
+                <template v-slot:prepend>
+                  <stat-icon :src="skillIcons.getIcon('ranged')"/>
+                </template>
+              </v-text-field>
             <v-text-field
-                            v-model="playerStats.magic"
+                            :value="playerStats.magic"
+                            @input="updateAttr('magic', $event)"
                             class="mt-0 pt-0"
                             label="Magic"
                             type="number"
                             filled
-                            ></v-text-field>
+                            >
+                <template v-slot:prepend>
+                  <stat-icon :src="skillIcons.getIcon('magic')"/>
+                </template>
+              </v-text-field>
             </v-col>  
                 
                 
@@ -78,36 +121,161 @@
   
   
   <v-app id="inspire" v-cloak>
+    <v-container>
     
-    <v-card flat color="transparent">
-      <v-subheader><h1>Player Stats</h1></v-subheader>
-      <v-card-text>
-        <template v-for="config in accountConfigs">
-          <v-btn color="primary" class="ma-1" @click="applyStatsToPlayer(config.stats)">{{config.name}}</v-btn>
-        </template>
-        <player-stats :player-stats.sync="playerStats"></player-stats>
-      </v-card-text>
+    <!-- Imput Player Stats -->
+    <v-card>
+      <v-toolbar color="primary" dark flat>
+        <v-btn icon @click="playerStatsSidebar.toggle">
+          <v-icon>mdi-menu</v-icon>
+        </v-btn>
+        <v-toolbar-title>Player Stats</v-toolbar-title>
+        <v-spacer></v-spacer>
+      </v-toolbar>
+      <v-card flat color="transparent" tile :style="cardStyle">
+        <v-navigation-drawer 
+                             
+                             v-model="playerStatsSidebar.isActive.value"
+                             hide-overlay
+                             dark
+                             absolute 
+                             color="blue darken-3"
+                             :permanent="playerStatsSidebar.isActive.value"
+                             >
+          <v-list subheader>
+            <v-subheader>Custom Presets</v-subheader>
+            <template v-if="storedStats.records.value.length">
+              <v-list-item
+                           v-for="(record, i) in storedStats.records.value"
+                           :key="i"
+                           @click="applyStatsToPlayer(record.config)"
+                           >
+                <v-list-item-content>
+                  <v-list-item-title v-text="record.name"></v-list-item-title>
+                </v-list-item-content>
+                <v-list-item-action>
+                  <v-icon @click="storedStats.removeRecord(i)">mdi-close</v-icon>
+                </v-list-item-action>
+              </v-list-item>
+            </template>
+            <template v-else>
+              <v-subheader>No data</v-subheader>
+            </template>
+          </v-list>
+          <v-divider></v-divider>
+
+          <v-list subheader>
+            <v-subheader>Presets</v-subheader>
+            
+            <v-list-item
+                         v-for="config in accountConfigs"
+                         :key="config.name"
+                         @click="applyStatsToPlayer(config.stats)"
+                         >
+              <v-list-item-content>
+                <v-list-item-title v-text="config.name"></v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
+          </v-list>
+        </v-navigation-drawer>
+        
+          <v-tabs
+                  v-model="combatCalc.tabset.tab"
+                  vertical
+                  :grow="true"
+                  background-color="blue lighten-5"
+                  icons-and-text
+                  >
+            <v-tabs-slider></v-tabs-slider>
+
+            <v-tab
+                   v-for="i in combatCalc.tabset.tabs.value"
+                   :key="i.key"
+                   :href="`#tab-${i.key}`"
+                   icon="mdi-chart-bar"
+                   
+                   >
+              {{ i.label }}
+              <v-icon>{{i.icon}}</v-icon>
+            </v-tab>
+
+            <v-tab-item
+                        :value="'tab-lvl'"
+                        >
+              <v-card
+                      flat
+                      tile
+                      class="pa-4"
+                      >
+                <player-stats :player-stats.sync="c_playerStats"></player-stats>
+              </v-card>
+            </v-tab-item>
+            <v-tab-item
+                        :value="'tab-exp'"
+                        >
+              <v-card
+                      flat
+                      tile
+                      class="pa-4"
+                      >
+                <player-stats :player-stats.sync="c_playerExp"></player-stats>
+                <pre><xmp></xmp></pre>
+              </v-card>
+            </v-tab-item>
+          </v-tabs>
+
+      </v-card>
+      <v-divider></v-divider>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn @click="toggleLiveStatSync()"><v-icon>{{checkIcon(isLiveStatSync)}}</v-icon> Live Stats</v-btn>
-        <v-btn color="primary" @click="applyStatsToCalc(playerStats)">Use Stats</v-btn>
+        <v-btn @click="liveStatSync.toggle" class="pl-4 pr-4" ><v-icon left>{{checkIcon(liveStatSync.isActive.value)}}</v-icon> Live Stats</v-btn>
+        <v-btn color="primary" class="pl-4 pr-4" @click="storedStats.prompt.toggle()">Save Preset</v-btn>
+        <v-btn color="primary" class="pl-4 pr-4" @click="combatCalc.applyStatsToCalc(c_playerStats)">Use Stats</v-btn>
       </v-card-actions>
     </v-card>
     
     
     
+    <!-- Prompt Stats Name Dialog --> 
+    <v-dialog v-model="storedStats.prompt.isActive.value" max-width="600px">
+      <v-card>
+        <v-card-title>
+          <span class="headline">Name Profile</span>
+        </v-card-title>
+        <v-card-text>
+          <v-container>
+            <v-row>
+              <v-col cols="12">
+                <v-text-field v-model="storedStats.input.value" label="Name" filled required></v-text-field>
+              </v-col>
+            </v-row>
+          </v-container>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="blue darken-1" text @click="storedStats.prompt.cancel()">Cancel</v-btn>
+          <v-btn color="blue darken-1" text @click="storedStats.prompt.confirm()">Confirm</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
     
-    
-    <v-card flat color="transparent">
-      <v-subheader>
-        <h1>
-          Combat: {{cmbLvl}}
-        </h1>
-      </v-subheader>
+      <br>
+      
+    <!-- Combat Calc -->
+    <v-card color="transparent">
+      
+      <v-toolbar color="primary" dark flat>
+        <v-btn icon readonly>
+          <v-icon>mdi-sword-cross</v-icon>
+        </v-btn>
+        <v-toolbar-title>Combat: {{combatCalc.cmbLvl.value}}</v-toolbar-title>
+        <v-spacer></v-spacer>
+      </v-toolbar>
+      
       <v-card-text>
         <v-switch v-model="showLabels" label="Show notable levels"></v-switch>
         <v-row cols="12">
-          <v-col lg="6">
+          <v-col lg="12" xl="6">
             <v-simple-table
               :fixed-header="true"
             >
@@ -116,20 +284,20 @@
                   <tr>
                     <td :colspan="maxSpan" class="pt-4">
                       <h2>Meele</h2>
-                      <v-checkbox v-model="syncDistanceToMeele" label="Sync Distance to Meele"></v-checkbox>
+                      <v-checkbox v-model="combatCalc.syncDistanceToMeele.value" label="Sync Distance to Meele"></v-checkbox>
                     </td>
                   </tr>
                   <tr>
                     <td class="skill_actions">
-                      <v-btn icon @click="lockedStats[`attack`] = !lockedStats[`attack`]"><v-icon>{{lockIcon(lockedStats[`attack`])}}</v-icon></v-btn>
+                      <v-btn icon @click="combatCalc.lockedStats[`attack`] = !combatCalc.lockedStats[`attack`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`attack`])}}</v-icon></v-btn>
                     </td>
                     <td class="skill_label">
                       Attack
                     </td>
                     <td class="skill_slider_cell">
                       <v-slider
-                        v-model="stats.attack"
-                        :disabled="lockedStats[`attack`]"
+                        v-model="combatCalc.stats.attack"
+                        :disabled="combatCalc.lockedStats[`attack`]"
                         class="align-center"
                         :min="min"
                         :max="max"
@@ -137,10 +305,13 @@
                         :tick-size="tickSize"
                         hide-details
                       >
+                        <template v-slot:prepend>
+                          <stat-icon :src="skillIcons.getIcon('attack')"/>
+                        </template>
                         <template v-slot:append>
                           <v-text-field
-                            v-model="stats.attack"
-                            :disabled="lockedStats[`attack`]"
+                            v-model="combatCalc.stats.attack"
+                            :disabled="combatCalc.lockedStats[`attack`]"
                             class="mt-0 pt-0"
                             hide-details
                             single-line
@@ -155,27 +326,30 @@
 
                   <tr>
                     <td class="skill_actions">
-                      <v-btn icon @click="lockedStats[`strength`] = !lockedStats[`strength`]"><v-icon>{{lockIcon(lockedStats[`strength`])}}</v-icon></v-btn>
+                      <v-btn icon @click="combatCalc.lockedStats[`strength`] = !combatCalc.lockedStats[`strength`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`strength`])}}</v-icon></v-btn>
                     </td>
                     <td class="skill_label">
                       Strength
                     </td>
                     <td class="skill_slider_cell">
                       <v-slider
-                        v-model="stats.strength"
+                        v-model="combatCalc.stats.strength"
                         class="align-center"
-                        :disabled="lockedStats[`strength`]"
+                        :disabled="combatCalc.lockedStats[`strength`]"
                         :tick-Labels="!showLabels ? [] : statTickLabels.strength"
                         :tick-size="tickSize"
                         :max="max"
                         :min="min"
                         hide-details
                       >
+                        <template v-slot:prepend>
+                          <stat-icon :src="skillIcons.getIcon('strength')"/>
+                        </template>
                         <template v-slot:append>
                           <v-text-field
-                            v-model="stats.strength"
+                            v-model="combatCalc.stats.strength"
                             class="mt-0 pt-0"
-                            :disabled="lockedStats[`strength`]"
+                            :disabled="combatCalc.lockedStats[`strength`]"
                             hide-details
                             single-line
                             type="number"
@@ -196,15 +370,15 @@
 
                   <tr>
                     <td class="skill_actions">
-                      <v-btn icon @click="lockedStats[`defence`] = !lockedStats[`defence`]"><v-icon>{{lockIcon(lockedStats[`defence`])}}</v-icon></v-btn>
+                      <v-btn icon @click="combatCalc.lockedStats[`defence`] = !combatCalc.lockedStats[`defence`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`defence`])}}</v-icon></v-btn>
                     </td>
                     <td class="skill_label">
                       Defence
                     </td>
                     <td class="skill_slider_cell">
                       <v-slider
-                        v-model="stats.defence"
-                        :disabled="lockedStats[`defence`]"
+                        v-model="combatCalc.stats.defence"
+                        :disabled="combatCalc.lockedStats[`defence`]"
                         class="align-center"
                         :max="max"
                         :min="min"
@@ -212,10 +386,13 @@
                         :tick-size="tickSize"
                         hide-details
                       >
+                        <template v-slot:prepend>
+                          <stat-icon :src="skillIcons.getIcon('defence')"/>
+                        </template>
                         <template v-slot:append>
                           <v-text-field
-                            v-model="stats.defence"
-                            :disabled="lockedStats[`defence`]"
+                            v-model="combatCalc.stats.defence"
+                            :disabled="combatCalc.lockedStats[`defence`]"
                             class="mt-0 pt-0"
                             hide-details
                             single-line
@@ -232,26 +409,29 @@
 
                   <tr>
                     <td class="skill_actions">
-                      <v-btn icon @click="lockedStats[`hitpoints`] = !lockedStats[`hitpoints`]"><v-icon>{{lockIcon(lockedStats[`hitpoints`])}}</v-icon></v-btn>
+                      <v-btn icon @click="combatCalc.lockedStats[`hitpoints`] = !combatCalc.lockedStats[`hitpoints`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`hitpoints`])}}</v-icon></v-btn>
                     </td>
                     <td class="skill_label">
                       Hitpoints
                     </td>
                     <td class="skill_slider_cell">
                       <v-slider
-                        v-model="stats.hitpoints"
+                        v-model="combatCalc.stats.hitpoints"
                         class="align-center"
-                        :disabled="lockedStats[`hitpoints`]"
+                        :disabled="combatCalc.lockedStats[`hitpoints`]"
                         :tick-Labels="!showLabels ? [] : statTickLabels.hitpoints"
                         :tick-size="tickSize"
                         :max="max"
                         :min="hpMin"
                         hide-details
                       >
+                        <template v-slot:prepend>
+                          <stat-icon :src="skillIcons.getIcon('Hitpoints')"/>
+                        </template>
                         <template v-slot:append>
                           <v-text-field
-                            v-model.lazy="stats.hitpoints"
-                            :disabled="lockedStats[`hitpoints`]"
+                            v-model.lazy="combatCalc.stats.hitpoints"
+                            :disabled="combatCalc.lockedStats[`hitpoints`]"
                             class="mt-0 pt-0"
                             hide-details
                             single-line
@@ -268,26 +448,29 @@
 
                   <tr>
                     <td class="skill_actions">
-                      <v-btn icon @click="lockedStats[`prayer`] = !lockedStats[`prayer`]"><v-icon>{{lockIcon(lockedStats[`prayer`])}}</v-icon></v-btn>
+                      <v-btn icon @click="combatCalc.lockedStats[`prayer`] = !combatCalc.lockedStats[`prayer`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`prayer`])}}</v-icon></v-btn>
                     </td>
                     <td class="skill_label">
                       Prayer
                     </td>
                     <td class="skill_slider_cell">
                       <v-slider
-                        v-model="stats.prayer"
+                        v-model="combatCalc.stats.prayer"
                         class="align-center"
                         :tick-Labels="!showLabels ? [] : statTickLabels.prayer"
                         :tick-size="tickSize"
-                        :disabled="lockedStats[`prayer`]"
+                        :disabled="combatCalc.lockedStats[`prayer`]"
                         :max="max"
                         :min="min"
                         hide-details
                       >
+                        <template v-slot:prepend>
+                          <stat-icon :src="skillIcons.getIcon('prayer')"/>
+                        </template>
                         <template v-slot:append>
                           <v-text-field
-                            v-model="stats.prayer"
-                            :disabled="lockedStats[`prayer`]"
+                            v-model="combatCalc.stats.prayer"
+                            :disabled="combatCalc.lockedStats[`prayer`]"
                             class="mt-0 pt-0"
                             hide-details
                             single-line
@@ -304,24 +487,25 @@
                   <tr>
                     <td :colspan="maxSpan" class="pt-4">
                       <h2>Distance</h2>
-                      <p>Can be lvl {{distanceOffenceEquivalent}} in any of the following without affecting combat level.</p>
-                      <v-checkbox v-model="syncMeeleToDistance" label="Sync Meele to Distance"></v-checkbox>
+                      <p>Can be lvl {{combatCalc.distanceOffenceEquivalent.value}} in any of the following without affecting combat level.</p>
+                      <v-checkbox v-model="combatCalc.syncMeeleToDistance.value" label="Sync Meele to Distance"></v-checkbox>
                     </td>
                   </tr>
 
-
                   <tr>
-                    <td rowspan="2" class="skill_actions">
-                      <v-btn icon @click="toggleLinkDistance" :input-value="linkDistance">
+                    <td rowspan="3" class="skill_actions">
+                      <v-btn icon @click="combatCalc.linkedDistanceOffence.toggle" :input-value="combatCalc.linkedDistanceOffence.isActive.value">
                         <v-icon>mdi-link</v-icon>
                       </v-btn>
                     </td>
+                </tr>
+                  <tr>
                     <td class="skill_label">
                       Ranged
                     </td>
                     <td class="skill_slider_cell">
                       <v-slider
-                        v-model="stats.ranged"
+                        v-model="combatCalc.stats.ranged"
                         class="align-center"
                         :max="max"
                         :min="min"
@@ -329,9 +513,12 @@
                         :tick-size="tickSize"
                         hide-details
                       >
+                        <template v-slot:prepend>
+                          <stat-icon :src="skillIcons.getIcon('ranged')"/>
+                        </template>
                         <template v-slot:append>
                           <v-text-field
-                            v-model="stats.ranged"
+                            v-model="combatCalc.stats.ranged"
                             class="mt-0 pt-0"
                             hide-details
                             single-line
@@ -346,11 +533,11 @@
 
                   <tr>
                     <td class="skill_label">
-                      magic
+                      Magic
                     </td>
                     <td class="skill_slider_cell">
                       <v-slider
-                        v-model="stats.magic"
+                        v-model="combatCalc.stats.magic"
                         class="align-center"
                         :max="max"
                         :min="min"
@@ -358,9 +545,12 @@
                         :tick-size="tickSize"
                         hide-details
                       >
+                        <template v-slot:prepend>
+                          <stat-icon :src="skillIcons.getIcon('magic')"/>
+                        </template>
                         <template v-slot:append>
                           <v-text-field
-                            v-model="stats.magic"
+                            v-model="combatCalc.stats.magic"
                             class="mt-0 pt-0"
                             hide-details
                             single-line
@@ -385,12 +575,13 @@
             </v-simple-table>
             
           </v-col>
-          <v-col lg="6">
+          <v-col xl="6">
             <canvas id="myChart" width="400" height="400"></canvas>  
           </v-col>
         </v-row>
       </v-card-text>
     </v-card>
+      </v-container>
   </v-app>
 </div>
 <!-- partial -->
@@ -398,7 +589,8 @@
 <script src='https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/vuetify@2.2.15/dist/vuetify.min.js'></script>
 <script src='https://unpkg.com/@vue/composition-api@0.3.1/dist/vue-composition-api.umd.js'></script>
-<script src='https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js'></script><script  src="./script.js"></script>
+<script src='https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js'></script><script  src="./script.js"></script>
 
 </body>
 </html>
