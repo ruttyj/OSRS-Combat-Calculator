@@ -2,11 +2,11 @@
 <html lang="en" >
 <head>
   <meta charset="UTF-8">
-  <title>CodePen - OSRS Combat Calculator - Vue Composition API (Work in progress) </title>
+  <title>CodePen - OSRS Combat Calculator - Vue Composition API (Github Version) </title>
   <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900'>
 <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css'>
 <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Material+Icons'>
-<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css'><link rel="stylesheet" href="./style.css">
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/vuetify@2.2.15/dist/vuetify.min.css'><link rel="stylesheet" href="./style.css">
 
 </head>
 <body>
@@ -119,513 +119,530 @@
   </script>
   
   
+  
   <v-app id="inspire" v-cloak v-resize="redrawChart">
     <v-container>
-    
-    <!-- Imput Player Stats -->
-    <v-card>
-      <v-toolbar color="primary" dark flat>
-        <v-btn icon @click="playerStatsSidebar.toggle">
-          <v-icon>mdi-menu</v-icon>
-        </v-btn>
-        <v-toolbar-title>Player Stats</v-toolbar-title>
-        <v-spacer></v-spacer>
-      </v-toolbar>
-      <v-card flat color="transparent" tile :style="cardStyle">
-        <v-navigation-drawer 
-                             v-model="playerStatsSidebar.isActive.value"
-                             hide-overlay
-                             dark
-                             absolute 
-                             color="blue darken-3"
-                             :permanent="playerStatsSidebar.isActive.value"
-                             >
-          <v-list subheader>
-            <v-subheader>Custom Presets</v-subheader>
-            <template v-if="storedStats.records.value.length">
-              <v-list-item
-                           v-for="(record, i) in storedStats.records.value"
-                           :key="i"
-                           @click="applyStatsToPlayer(record.config)"
-                           >
-                <v-list-item-content>
-                  <v-list-item-title v-text="record.name"></v-list-item-title>
-                </v-list-item-content>
-                <v-list-item-action>
-                  <v-icon @click="storedStats.removeRecord(i)">mdi-close</v-icon>
-                </v-list-item-action>
-              </v-list-item>
-            </template>
-            <template v-else>
-              <v-subheader>No data</v-subheader>
-            </template>
-          </v-list>
-          <v-divider></v-divider>
-
-          <v-list subheader>
-            <v-subheader>Presets</v-subheader>
-            
-            <v-list-item
-                         v-for="config in accountConfigs"
-                         :key="config.name"
-                         @click="applyStatsToPlayer(config.stats)"
-                         >
-              <v-list-item-content>
-                <v-list-item-title v-text="config.name"></v-list-item-title>
-              </v-list-item-content>
-            </v-list-item>
-          </v-list>
-        </v-navigation-drawer>
         
-          <v-tabs
-                  v-model="combatCalc.tabset.tab.value"
-                  vertical
-                  background-color="blue lighten-5"
-                  icons-and-text
-                  >
-            <v-tabs-slider></v-tabs-slider>
-            <v-tab
-                   v-for="i in combatCalc.tabset.tabs.value"
-                   :key="i.key"
-                   :href="`#${i.key}`"
-                   icon="mdi-chart-bar">
-              {{ i.label }}
-              <v-icon>{{i.icon}}</v-icon>
-            </v-tab>
-            <v-tab-item value="lookup">
-              <v-card flat tile class="pa-4" >
-                @TODO Requires NodeJS to query cross domain
-              </v-card>
-            </v-tab-item>
-            <v-tab-item value="lvl">
-              <v-card
-                      flat
-                      tile
-                      class="pa-4"
-                      >
-                <player-stats :player-stats.sync="playerValues.lvl.computed.value"></player-stats>
-              </v-card>
-            </v-tab-item>
-            <v-tab-item value="exp">
-              <v-card
-                      flat
-                      tile
-                      class="pa-4"
-                      >
-                <player-stats :player-stats.sync="playerValues.exp.computed.value"></player-stats>
-                <pre><xmp></xmp></pre>
-              </v-card>
-            </v-tab-item>
-          </v-tabs>
-
-      </v-card>
-      <v-divider></v-divider>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn @click="liveStatSync.toggle" class="pl-4 pr-4" ><v-icon left>{{checkIcon(liveStatSync.isActive.value)}}</v-icon> Live Stats</v-btn>
-        <v-btn color="primary" class="pl-4 pr-4" @click="storedStats.prompt.toggle()">Save Preset</v-btn>
-        <v-btn color="primary" class="pl-4 pr-4" @click="combatCalc.applyStatsToCalc(playerValues.lvl.computed.value)">Use Stats</v-btn>
-      </v-card-actions>
-    </v-card>
-    
-    
-    
-    <!-- Prompt Stats Name Dialog --> 
-    <v-dialog v-model="storedStats.prompt.isActive.value" max-width="600px">
-      <v-card>
-        <v-card-title>
-          <span class="headline">Name Profile</span>
-        </v-card-title>
-        <v-card-text>
-          <v-container>
-            <v-row>
-              <v-col cols="12">
-                <v-text-field v-model="storedStats.input.value" label="Name" filled required></v-text-field>
-              </v-col>
-            </v-row>
-          </v-container>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="blue darken-1" text @click="storedStats.prompt.cancel()">Cancel</v-btn>
-          <v-btn color="blue darken-1" text @click="storedStats.prompt.confirm()">Confirm</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-    
-      <br>
-      
-      
-
-      <!-- Combat Calc -->
-      <v-card color="transparent">
-
-        <v-toolbar color="primary" dark flat>
-          <v-btn icon readonly>
-            <v-icon>mdi-sword-cross</v-icon>
-          </v-btn>
-          <v-toolbar-title>Combat Level: {{combatCalc.cmbLvl.value}}</v-toolbar-title>
-          <v-spacer></v-spacer>
-        </v-toolbar>
-
-        <v-card-text>
-          <v-row cols="12">
-            <v-col cols="12" md="12" lg="6">
-              <v-simple-table
-                :fixed-header="true"
-              >
-                <template v-slot:default>
-                  <tbody>
-
-
-                    <tr>
-                      <td :colspan="maxSpan">
-                        <h2>Base</h2>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td :colspan="maxSpan">
-                        <v-row>
-                          <v-col>
-                            
-                            <v-tooltip bottom>
-                              <template v-slot:activator="{ on }">
-                                <v-checkbox v-model="combatCalc.estimateHitpoints.isActive.value" v-on="on">
-                                  <template v-slot:label>
-                                    Estimate Hitpoints
-                                  </template>
-                                </v-checkbox>
-                              </template>
-                              <p>
-                                Estimated hitpoints assumes accurate, agressive or defensive.
-                                <br/>Controlled and defensive distance training will yeild a different result 
-                              </p>
-                            </v-tooltip>
-                          </v-col>
-                          <v-col>
-                            <v-checkbox v-model="combatCalc.maximizeOffence.isActive.value" label="Maximize Offence"></v-checkbox>
-                          </v-col>
-                        </v-row>
-                      </td>
-                    </tr>
-                    
-                    
-                    <tr>
-                      <td class="skill_actions">
-                        <v-btn icon @click="combatCalc.lockedStats[`defence`] = !combatCalc.lockedStats[`defence`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`defence`])}}</v-icon></v-btn>
-                      </td>
-                      <td class="skill_label">
-                        Defence
-                      </td>
-                      <td class="skill_slider_cell">
-                        <v-slider
-                          :value="combatCalc.calcValues.lvl.computed.value.defence"
-                          @input="combatCalc.updateSyncedStats(`defence`, $event)"
-                          :disabled="combatCalc.lockedStats[`defence`]"
-                          class="align-center"
-                          :max="max"
-                          :min="min"
-                          :tick-Labels="skillSliderLabels.defence"
-                          :tick-size="tickSize"
-                          hide-details
+        <!-- Imput Player Stats -->
+        <v-card>
+            <v-toolbar color="primary" dark flat>
+                <v-btn icon @click="playerStatsSidebar.toggle">
+                    <v-icon>mdi-menu</v-icon>
+                </v-btn>
+                <v-toolbar-title>Player Stats</v-toolbar-title>
+                <v-spacer></v-spacer>
+            </v-toolbar>
+            <v-card flat color="transparent" tile :style="cardStyle">
+                <v-navigation-drawer 
+                    v-model="playerStatsSidebar.isActive.value"
+                    hide-overlay
+                    dark
+                    absolute 
+                    color="blue darken-3"
+                    :permanent="playerStatsSidebar.isActive.value"
+                >
+                <v-list subheader>
+                    <v-subheader>Custom Presets</v-subheader>
+                    <template v-if="storedStats.records.value.length">
+                        <v-list-item
+                            v-for="(record, i) in storedStats.records.value"
+                            :key="`Custom-${i}`"
+                            @click="applyStatsToPlayer(record.config)"
                         >
-                          <template v-slot:prepend>
-                            <stat-icon :src="skillIcons.getIcon('defence')"/>
-                          </template>
-                          <template v-slot:append>
-                            <v-text-field
-                              :value="combatCalc.calcValues.lvl.computed.value.defence"
-                              @change="combatCalc.updateSyncedStats(`defence`, $event)"
-                              :disabled="combatCalc.lockedStats[`defence`]"
-                              class="mt-0 pt-0"
-                              hide-details
-                              single-line
-                              type="number"
-                              style="width: 60px"
-                            ></v-text-field>
-                          </template>
-                        </v-slider>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="skill_actions">
-                        <v-btn icon @click="combatCalc.lockedStats[`hitpoints`] = !combatCalc.lockedStats[`hitpoints`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`hitpoints`])}}</v-icon></v-btn>
-                      </td>
-                      <td class="skill_label">
-                        Hitpoints
-                      </td>
-                      <td class="skill_slider_cell">
-                        <v-slider
-                          :value="combatCalc.calcValues.lvl.computed.value.hitpoints"
-                          @input="combatCalc.updateSyncedStats(`hitpoints`, $event)"
-                          class="align-center"
-                          :disabled="combatCalc.lockedStats[`hitpoints`] || combatCalc.estimateHitpoints.isActive.value"
-                          :tick-Labels="skillSliderLabels.hitpoints"
-                          :tick-size="tickSize"
-                          :max="max"
-                          :min="hpMin"
-                          hide-details
-                        >
-                          <template v-slot:prepend>
-                            <stat-icon :src="skillIcons.getIcon('Hitpoints')"/>
-                          </template>
-                          <template v-slot:append>
-                            <v-text-field
-                              :value="combatCalc.calcValues.lvl.computed.value.hitpoints"
-                              @change="combatCalc.updateSyncedStats(`hitpoints`, $event)"
-                              :disabled="combatCalc.lockedStats[`hitpoints`] || combatCalc.estimateHitpoints.isActive.value"
-                              class="mt-0 pt-0"
-                              hide-details
-                              single-line
-                              type="number"
-                              :max="max"
-                              :min="hpMin"
-                              style="width: 60px"
-                            ></v-text-field>
-                          </template>
-                        </v-slider>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="skill_actions">
-                        <v-btn icon @click="combatCalc.lockedStats[`prayer`] = !combatCalc.lockedStats[`prayer`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`prayer`])}}</v-icon></v-btn>
-                      </td>
-                      <td class="skill_label">
-                        Prayer
-                      </td>
-                      <td class="skill_slider_cell">
-                        <v-slider
-                          :value="combatCalc.calcValues.lvl.computed.value.prayer"
-                          @input="combatCalc.updateSyncedStats(`prayer`, $event)"
-                          class="align-center"
-                          :tick-Labels="skillSliderLabels.prayer"
-                          :tick-size="tickSize"
-                          :disabled="combatCalc.lockedStats[`prayer`]"
-                          :max="max"
-                          :min="min"
-                          hide-details
-                        >
-                          <template v-slot:prepend>
-                            <stat-icon :src="skillIcons.getIcon('prayer')"/>
-                          </template>
-                          <template v-slot:append>
-                            <v-text-field
-                              :value="combatCalc.calcValues.lvl.computed.value.prayer"
-                              @change="combatCalc.updateSyncedStats(`prayer`, $event)"
-                              :disabled="combatCalc.lockedStats[`prayer`]"
-                              class="mt-0 pt-0"
-                              hide-details
-                              single-line
-                              type="number"
-                              style="width: 60px"
-                            ></v-text-field>
-                          </template>
-                        </v-slider>
-                      </td>
-                    </tr>
+                            <v-list-item-content>
+                                <v-list-item-title v-text="record.name"></v-list-item-title>
+                            </v-list-item-content>
+                            <v-list-item-action>
+                                <v-icon @click="storedStats.removeRecord(i)">mdi-close</v-icon>
+                            </v-list-item-action>
+                        </v-list-item>
+                    </template>
+                    <template v-else>
+                        <v-subheader>No data</v-subheader>
+                    </template>
+                </v-list>
+                <v-divider></v-divider>
 
-                    <tr>
-                      <td :colspan="maxSpan" class="pt-4">
-                        <h2>Meele</h2>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="skill_actions">
-                        <v-btn icon @click="combatCalc.lockedStats[`attack`] = !combatCalc.lockedStats[`attack`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`attack`])}}</v-icon></v-btn>
-                      </td>
-                      <td class="skill_label">
-                        Attack
-                      </td>
-                      <td class="skill_slider_cell">
-                        <v-slider
-                          :value="combatCalc.calcValues.lvl.computed.value.attack"
-                          @input="combatCalc.updateSyncedStats(`attack`, $event)"
-                          :disabled="combatCalc.lockedStats[`attack`]"      
-                          class="align-center"
-                          :min="min"
-                          :max="max"
-                          :tick-Labels="skillSliderLabels.attack"
-                          :tick-size="tickSize"
-                          hide-details
-                        >
-                          <template v-slot:prepend>
-                            <stat-icon :src="skillIcons.getIcon('attack')"/>
-                          </template>
-                          <template v-slot:append>
-                            <v-text-field
-                              :value="combatCalc.calcValues.lvl.computed.value.attack"
-                              @change="combatCalc.updateSyncedStats(`attack`, $event)"
-                              :disabled="combatCalc.lockedStats[`attack`]"
-                              class="mt-0 pt-0"
-                              hide-details
-                              single-line
-                              type="number"
-                              style="width: 60px"
-                            ></v-text-field>
-                          </template>
-                        </v-slider>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="skill_actions">
-                        <v-btn icon @click="combatCalc.lockedStats[`strength`] = !combatCalc.lockedStats[`strength`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`strength`])}}</v-icon></v-btn>
-                      </td>
-                      <td class="skill_label">
-                        Strength
-                      </td>
-                      <td class="skill_slider_cell">
-                        <v-slider
-                          :value="combatCalc.calcValues.lvl.computed.value.strength"
-                          @input="combatCalc.updateSyncedStats(`strength`, $event)"
-                          class="align-center"
-                          :disabled="combatCalc.lockedStats[`strength`]"
-                          :tick-Labels="skillSliderLabels.strength"
-                          :tick-size="tickSize"
-                          :max="max"
-                          :min="min"
-                          hide-details
-                        >
-                          <template v-slot:prepend>
-                            <stat-icon :src="skillIcons.getIcon('strength')"/>
-                          </template>
-                          <template v-slot:append>
-                            <v-text-field
-                              :value="combatCalc.calcValues.lvl.computed.value.strength"
-                              @change="combatCalc.updateSyncedStats(`strength`, $event)"
-                              class="mt-0 pt-0"
-                              :disabled="combatCalc.lockedStats[`strength`]"
-                              hide-details
-                              single-line
-                              type="number"
-                              style="width: 60px"
-                            ></v-text-field>
-                          </template>
-                        </v-slider>
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td :colspan="maxSpan" class="pt-4">
-                        <h2>Distance</h2>
-                        <p class="pt-2">
-                          The maximum of the two will imapact the combat level.
-                        </p>
-                       
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td rowspan="3" class="skill_actions">
-                        <v-btn icon @click="combatCalc.linkedDistanceOffence.toggle" :input-value="combatCalc.linkedDistanceOffence.isActive.value">
-                          <v-icon>mdi-link</v-icon>
-                        </v-btn>
-                      </td>
-                  </tr>
-                    <tr>
-                      <td class="skill_label">
-                        Ranged
-                      </td>
-                      <td class="skill_slider_cell">
-                        <v-slider
-                          :value="combatCalc.calcValues.lvl.computed.value.ranged"
-                          @input="combatCalc.updateSyncedStats(`ranged`, $event)"
-                          class="align-center"
-                          :max="max"
-                          :min="min"
-                          :tick-Labels="skillSliderLabels.ranged"
-                          :tick-size="tickSize"
-                          hide-details
-                        >
-                          <template v-slot:prepend>
-                            <stat-icon :src="skillIcons.getIcon('ranged')"/>
-                          </template>
-                          <template v-slot:append>
-                            <v-text-field
-                              :value="combatCalc.calcValues.lvl.computed.value.ranged"
-                              @input="combatCalc.updateSyncedStats(`ranged`, $event)"
-                              class="mt-0 pt-0"
-                              hide-details
-                              single-line
-                              type="number"
-                              style="width: 60px"
-                            ></v-text-field>
-                          </template>
-                        </v-slider>
-                      </td>
-                    </tr>
-
-
-                    <tr>
-                      <td class="skill_label">
-                        Magic
-                      </td>
-                      <td class="skill_slider_cell">
-                        <v-slider
-                          :value="combatCalc.calcValues.lvl.computed.value.magic"
-                          @input="combatCalc.updateSyncedStats(`magic`, $event)"
-                          class="align-center"
-                          :max="max"
-                          :min="min"
-                          :tick-Labels="skillSliderLabels.magic"
-                          :tick-size="tickSize"
-                          hide-details
-                        >
-                          <template v-slot:prepend>
-                            <stat-icon :src="skillIcons.getIcon('magic')"/>
-                          </template>
-                          <template v-slot:append>
-                            <v-text-field
-                              :value="combatCalc.calcValues.lvl.computed.value.magic"
-                              @change="combatCalc.updateSyncedStats(`magic`, $event)"
-                              class="mt-0 pt-0"
-                              hide-details
-                              single-line
-                              type="number"
-                              style="width: 60px"
-                            ></v-text-field>
-                          </template>
-                        </v-slider>
-                      </td>
-                    </tr>
-
-
-
-                    <tr>
-                      <td :colspan="maxSpan">
-                      </td>
-                    </tr>
-
-
-                  </tbody>
-                </template>
-              </v-simple-table>
-
-            </v-col>
-            <v-col cols="12" md="12" lg="6">
-              <canvas id="myChart" style="width:100%; height: 100%;"></canvas>  
-            </v-col>
-          </v-row>
-        </v-card-text>
-      </v-card>
-
-      <div>
-        <v-row>
-          <v-col>
-            <pre><xmp>base lvls {{combatCalc.baseValues.lvl.computed.value}}</xmp></pre>
-            <pre><xmp>base exp {{combatCalc.baseValues.exp.computed.value}}</xmp></pre>
-          </v-col>
-          <v-col>
-            <pre><xmp>computed lvls {{combatCalc.calcValues.lvl.computed.value}}</xmp></pre>
-            <pre><xmp>computed exp {{combatCalc.calcValues.exp.computed.value}}</xmp></pre>
-          </v-col>
-          <v-col>
-            <pre><xmp>delta lvls {{combatCalc.deltaValues.value.lvl}}</xmp></pre>
-            <pre><xmp>delta exp {{combatCalc.deltaValues.value.exp}}</xmp></pre>
-          </v-col>
+                <v-list subheader>
+                    <v-subheader>Presets</v-subheader>
+                    <v-list-item
+                        v-for="config in accountConfigs"
+                        :key="config.name"
+                        @click="applyStatsToPlayer(config.stats)"
+                    >
+                    <v-list-item-content>
+                        <v-list-item-title v-text="config.name"></v-list-item-title>
+                    </v-list-item-content>
+                    </v-list-item>
+                </v-list>
+                </v-navigation-drawer>
+                
+                <v-tabs
+                    v-model="combatCalc.tabset.tab.value"
+                    vertical
+                    background-color="blue lighten-5"
+                    icons-and-text
+                >
+                    <v-tabs-slider></v-tabs-slider>
+                    <v-tab
+                        v-for="i in combatCalc.tabset.tabs.value"
+                        :key="i.key"
+                        :href="`#${i.key}`"
+                        icon="mdi-chart-bar"
+                    >
+                        {{ i.label }}
+                        <v-icon>{{i.icon}}</v-icon>
+                    </v-tab>
+                    <v-tab-item value="lookup">
+                        <v-card flat tile class="pa-4" >
+                            @TODO Requires NodeJS to query cross domain
+                        </v-card>
+                    </v-tab-item>
+                    <v-tab-item value="lvl">
+                        <v-card flat tile class="pa-4" >
+                            <player-stats :player-stats.sync="playerValues.lvl.computed.value"></player-stats>
+                        </v-card>
+                    </v-tab-item>
+                    <v-tab-item value="exp">
+                        <v-card flat tile class="pa-4" >
+                            <player-stats :player-stats.sync="playerValues.exp.computed.value"></player-stats>
+                            <pre><xmp></xmp></pre>
+                        </v-card>
+                    </v-tab-item>
+                </v-tabs>
+            </v-card>
+            <v-divider></v-divider>
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-switch 
+                  hide-details 
+                  class="shrink mr-4 mt-0" 
+                  v-model="liveStatSync.isActive.value" 
+                  label="Live Stats"
+                /></v-switch>
+                
+                <v-btn class="pl-4 pr-4" @click="storedStats.prompt.toggle()">
+                  <v-icon left>mdi-content-save</v-icon>
+                    Save Preset
+                  </v-btn>
           
-        <v-row>
+          
+                <v-btn class="pl-4 pr-4" @click="applyExpFromCalc(combatCalc.calcValues.exp.computed.value)">
+                  <v-icon left>mdi-arrow-up-bold</v-icon>
+                    Retreive From Calculator
+                </v-btn>
+          
+                <v-btn color="primary" class="pl-4 pr-4" @click="combatCalc.applyStatsToCalc(playerValues.exp.computed.value)">
+                  <v-icon left>mdi-arrow-down-bold</v-icon>
+                    Apply To Calculator
+                </v-btn>
+          
+          
+            </v-card-actions>
+        </v-card>
+        
+        
+        
+        <!-- Prompt Stats Name Dialog --> 
+        <v-dialog v-model="storedStats.prompt.isActive.value" max-width="600px">
+            <v-card>
+                <v-card-title>
+                <span class="headline">Name Profile</span>
+                </v-card-title>
+                <v-card-text>
+                    <v-container>
+                        <v-row>
+                        <v-col cols="12">
+                            <v-text-field v-model="storedStats.input.value" label="Name" filled required></v-text-field>
+                        </v-col>
+                        </v-row>
+                    </v-container>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn color="blue darken-1" text @click="storedStats.prompt.cancel()">Cancel</v-btn>
+                    <v-btn color="blue darken-1" text @click="storedStats.prompt.confirm()">Confirm</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+        <br>
+        
+        
 
-      </div>
+        <!-- Combat Calc -->
+        <v-card color="transparent">
+
+            <v-toolbar color="primary" dark flat>
+            <v-btn icon readonly>
+                <v-icon>mdi-sword-cross</v-icon>
+            </v-btn>
+            <v-toolbar-title>Combat Level: {{combatCalc.cmbLvl.value}}</v-toolbar-title>
+            <v-spacer></v-spacer>
+            </v-toolbar>
+
+            <v-card-text>
+                <v-row cols="12">
+                    <v-col cols="12" md="12" lg="6">
+                        <v-simple-table :fixed-header="true">
+                            <template v-slot:default>
+                                <tbody>
+                                    <!-- Base Section-->
+                                    <tr>
+                                        <td :colspan="maxSpan">
+                                            <h2>Base</h2>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td :colspan="maxSpan">
+                                            <v-row>
+                                            <v-col>
+                                                
+                                                <v-tooltip bottom>
+                                                <template v-slot:activator="{ on }">
+                                                    <v-checkbox v-model="combatCalc.estimateHitpoints.isActive.value" v-on="on">
+                                                    <template v-slot:label>
+                                                        Estimate Hitpoints
+                                                    </template>
+                                                    </v-checkbox>
+                                                </template>
+                                                <p>
+                                                    Estimated hitpoints assumes accurate, agressive or defensive.
+                                                    <br/>Controlled and defensive distance training will yeild a different result 
+                                                </p>
+                                                </v-tooltip>
+                                            </v-col>
+                                            <v-col>
+                                                <v-checkbox v-model="combatCalc.maximizeOffence.isActive.value" label="Maximize Offence"></v-checkbox>
+                                            </v-col>
+                                            </v-row>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="skill_actions">
+                                            <v-btn icon @click="combatCalc.lockedStats[`defence`] = !combatCalc.lockedStats[`defence`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`defence`])}}</v-icon></v-btn>
+                                        </td>
+                                        <td class="skill_label">
+                                            Defence
+                                        </td>
+                                        <td class="skill_slider_cell">
+                                            <v-slider
+                                                :value="combatCalc.calcValues.lvl.computed.value.defence"
+                                                @input="combatCalc.updateSyncedStats(`defence`, $event)"
+                                                :disabled="combatCalc.lockedStats[`defence`]"
+                                                class="align-center"
+                                                :max="max"
+                                                :min="min"
+                                                :tick-Labels="skillSliderLabels.defence"
+                                                :tick-size="tickSize"
+                                                hide-details
+                                            >
+                                                <template v-slot:prepend>
+                                                    <stat-icon :src="skillIcons.getIcon('defence')"/>
+                                                </template>
+                                                <template v-slot:append>
+                                                    <v-text-field
+                                                        :value="combatCalc.calcValues.lvl.computed.value.defence"
+                                                        @change="combatCalc.updateSyncedStats(`defence`, $event)"
+                                                        :disabled="combatCalc.lockedStats[`defence`]"
+                                                        class="mt-0 pt-0"
+                                                        hide-details
+                                                        single-line
+                                                        type="number"
+                                                        style="width: 60px"
+                                                    />
+                                                </template>
+                                            </v-slider>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="skill_actions">
+                                            <v-btn icon @click="combatCalc.lockedStats[`hitpoints`] = !combatCalc.lockedStats[`hitpoints`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`hitpoints`])}}</v-icon></v-btn>
+                                        </td>
+                                        <td class="skill_label">
+                                            Hitpoints
+                                        </td>
+                                        <td class="skill_slider_cell">
+                                            <v-slider
+                                                :value="combatCalc.calcValues.lvl.computed.value.hitpoints"
+                                                @input="combatCalc.updateSyncedStats(`hitpoints`, $event)"
+                                                class="align-center"
+                                                :disabled="combatCalc.lockedStats[`hitpoints`] || combatCalc.estimateHitpoints.isActive.value"
+                                                :tick-Labels="skillSliderLabels.hitpoints"
+                                                :tick-size="tickSize"
+                                                :max="max"
+                                                :min="hpMin"
+                                                hide-details
+                                            >
+                                                <template v-slot:prepend>
+                                                    <stat-icon :src="skillIcons.getIcon('Hitpoints')"/>
+                                                </template>
+                                                <template v-slot:append>
+                                                    <v-text-field
+                                                        :value="combatCalc.calcValues.lvl.computed.value.hitpoints"
+                                                        @change="combatCalc.updateSyncedStats(`hitpoints`, $event)"
+                                                        :disabled="combatCalc.lockedStats[`hitpoints`] || combatCalc.estimateHitpoints.isActive.value"
+                                                        class="mt-0 pt-0"
+                                                        hide-details
+                                                        single-line
+                                                        type="number"
+                                                        :max="max"
+                                                        :min="hpMin"
+                                                        style="width: 60px"
+                                                    />
+                                                </template>
+                                            </v-slider>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="skill_actions">
+                                            <v-btn icon @click="combatCalc.lockedStats[`prayer`] = !combatCalc.lockedStats[`prayer`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`prayer`])}}</v-icon></v-btn>
+                                        </td>
+                                        <td class="skill_label">
+                                            Prayer
+                                        </td>
+                                        <td class="skill_slider_cell">
+                                            <v-slider
+                                                :value="combatCalc.calcValues.lvl.computed.value.prayer"
+                                                @input="combatCalc.updateSyncedStats(`prayer`, $event)"
+                                                class="align-center"
+                                                :tick-Labels="skillSliderLabels.prayer"
+                                                :tick-size="tickSize"
+                                                :disabled="combatCalc.lockedStats[`prayer`]"
+                                                :max="max"
+                                                :min="min"
+                                                hide-details
+                                            >
+                                                <template v-slot:prepend>
+                                                    <stat-icon :src="skillIcons.getIcon('prayer')"/>
+                                                </template>
+                                                <template v-slot:append>
+                                                    <v-text-field
+                                                        :value="combatCalc.calcValues.lvl.computed.value.prayer"
+                                                        @change="combatCalc.updateSyncedStats(`prayer`, $event)"
+                                                        :disabled="combatCalc.lockedStats[`prayer`]"
+                                                        class="mt-0 pt-0"
+                                                        hide-details
+                                                        single-line
+                                                        type="number"
+                                                        style="width: 60px"
+                                                    />
+                                                </template>
+                                            </v-slider>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Meele Section-->
+                                    <tr>
+                                        <td :colspan="maxSpan">
+                                            <h2>Meele</h2>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="skill_actions">
+                                            <v-btn icon @click="combatCalc.lockedStats[`attack`] = !combatCalc.lockedStats[`attack`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`attack`])}}</v-icon></v-btn>
+                                        </td>
+                                        <td class="skill_label">
+                                            Attack
+                                        </td>
+                                        <td class="skill_slider_cell">
+                                            <v-slider
+                                                :value="combatCalc.calcValues.lvl.computed.value.attack"
+                                                @input="combatCalc.updateSyncedStats(`attack`, $event)"
+                                                :disabled="combatCalc.lockedStats[`attack`]"      
+                                                class="align-center"
+                                                :min="min"
+                                                :max="max"
+                                                :tick-Labels="skillSliderLabels.attack"
+                                                :tick-size="tickSize"
+                                                hide-details
+                                            >
+                                                <template v-slot:prepend>
+                                                    <stat-icon :src="skillIcons.getIcon('attack')"/>
+                                                </template>
+                                                <template v-slot:append>
+                                                    <v-text-field
+                                                        :value="combatCalc.calcValues.lvl.computed.value.attack"
+                                                        @change="combatCalc.updateSyncedStats(`attack`, $event)"
+                                                        :disabled="combatCalc.lockedStats[`attack`]"
+                                                        class="mt-0 pt-0"
+                                                        hide-details
+                                                        single-line
+                                                        type="number"
+                                                        style="width: 60px"
+                                                    />
+                                                </template>
+                                            </v-slider>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="skill_actions">
+                                            <v-btn icon @click="combatCalc.lockedStats[`strength`] = !combatCalc.lockedStats[`strength`]"><v-icon>{{lockIcon(combatCalc.lockedStats[`strength`])}}</v-icon></v-btn>
+                                        </td>
+                                        <td class="skill_label">
+                                            Strength
+                                        </td>
+                                        <td class="skill_slider_cell">
+                                            <v-slider
+                                                :value="combatCalc.calcValues.lvl.computed.value.strength"
+                                                @input="combatCalc.updateSyncedStats(`strength`, $event)"
+                                                class="align-center"
+                                                :disabled="combatCalc.lockedStats[`strength`]"
+                                                :tick-Labels="skillSliderLabels.strength"
+                                                :tick-size="tickSize"
+                                                :max="max"
+                                                :min="min"
+                                                hide-details
+                                            >
+                                                <template v-slot:prepend>
+                                                    <stat-icon :src="skillIcons.getIcon('strength')"/>
+                                                </template>
+                                                <template v-slot:append>
+                                                    <v-text-field
+                                                        :value="combatCalc.calcValues.lvl.computed.value.strength"
+                                                        @change="combatCalc.updateSyncedStats(`strength`, $event)"
+                                                        class="mt-0 pt-0"
+                                                        :disabled="combatCalc.lockedStats[`strength`]"
+                                                        hide-details
+                                                        single-line
+                                                        type="number"
+                                                        style="width: 60px"
+                                                    />
+                                                </template>
+                                            </v-slider>
+                                        </td>
+                                    </tr>
+
+                                  
+                                    <!-- Distance Section-->
+                                    <tr>
+                                        <td :colspan="maxSpan" class="pt-4">
+                                            <h2>Distance</h2>
+                                            <p class="pt-2">
+                                                The maximum of the two will imapact the combat level.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td rowspan="3" class="skill_actions">
+                                            <v-btn icon @click="combatCalc.linkedDistanceOffence.toggle" :input-value="combatCalc.linkedDistanceOffence.isActive.value">
+                                                <v-icon>mdi-link</v-icon>
+                                            </v-btn>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="skill_label">
+                                            Ranged
+                                        </td>
+                                        <td class="skill_slider_cell">
+                                            <v-slider
+                                                :value="combatCalc.calcValues.lvl.computed.value.ranged"
+                                                @input="combatCalc.updateSyncedStats(`ranged`, $event)"
+                                                class="align-center"
+                                                :max="max"
+                                                :min="min"
+                                                :tick-Labels="skillSliderLabels.ranged"
+                                                :tick-size="tickSize"
+                                                hide-details
+                                            >
+                                                <template v-slot:prepend>
+                                                    <stat-icon :src="skillIcons.getIcon('ranged')"/>
+                                                </template>
+                                                <template v-slot:append>
+                                                    <v-text-field
+                                                        :value="combatCalc.calcValues.lvl.computed.value.ranged"
+                                                        @input="combatCalc.updateSyncedStats(`ranged`, $event)"
+                                                        class="mt-0 pt-0"
+                                                        hide-details
+                                                        single-line
+                                                        type="number"
+                                                        style="width: 60px"
+                                                    />
+                                                </template>
+                                            </v-slider>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="skill_label">
+                                            Magic
+                                        </td>
+                                        <td class="skill_slider_cell">
+                                            <v-slider
+                                                :value="combatCalc.calcValues.lvl.computed.value.magic"
+                                                @input="combatCalc.updateSyncedStats(`magic`, $event)"
+                                                class="align-center"
+                                                :max="max"
+                                                :min="min"
+                                                :tick-Labels="skillSliderLabels.magic"
+                                                :tick-size="tickSize"
+                                                hide-details
+                                            >
+                                                <template v-slot:prepend>
+                                                    <stat-icon :src="skillIcons.getIcon('magic')"/>
+                                                </template>
+                                                <template v-slot:append>
+                                                    <v-text-field
+                                                        :value="combatCalc.calcValues.lvl.computed.value.magic"
+                                                        @change="combatCalc.updateSyncedStats(`magic`, $event)"
+                                                        class="mt-0 pt-0"
+                                                        hide-details
+                                                        single-line
+                                                        type="number"
+                                                        style="width: 60px"
+                                                    />
+                                                </template>
+                                            </v-slider>
+                                        </td>
+                                    </tr>
+
+                                    <!-- End Spacer -->
+                                    <tr>
+                                        <td :colspan="maxSpan">
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </template>
+                        </v-simple-table>
+
+                    </v-col>
+                    <v-col cols="12" md="12" lg="6">
+                        <canvas id="myChart" style="width:100%; height: 100%;"></canvas>  
+                    </v-col>
+                </v-row>
+            </v-card-text>
+        </v-card>
+
+      
+        <!-- Debugging -->
+        <br/>
+        <v-card>
+            <v-toolbar color="primary" dark flat>
+            <v-btn icon readonly>
+                <v-icon>mdi-bug</v-icon>
+            </v-btn>
+            <v-toolbar-title>Debugging</v-toolbar-title>
+            <v-spacer></v-spacer>
+            </v-toolbar>
+            <v-card-text>
+              <v-row>
+                <v-col>
+                    <pre><xmp>base lvls {{combatCalc.baseValues.lvl.computed.value}}</xmp></pre>
+                    <pre><xmp>base exp {{combatCalc.baseValues.exp.computed.value}}</xmp></pre>
+                </v-col>
+                <v-col>
+                    <pre><xmp>computed lvls {{combatCalc.calcValues.lvl.computed.value}}</xmp></pre>
+                    <pre><xmp>computed exp {{combatCalc.calcValues.exp.computed.value}}</xmp></pre>
+                </v-col>
+                <v-col>
+                    <pre><xmp>delta lvls {{combatCalc.deltaValues.value.lvl}}</xmp></pre>
+                    <pre><xmp>delta exp {{combatCalc.deltaValues.value.exp}}</xmp></pre>
+                </v-col>
+
+                <v-col>
+                    <pre><xmp> Levels {{combatCalc.getHumanReadableRsLevels()}}</xmp></pre>
+                </v-col>
+              <v-row>
+          </v-card-text>
+        </v-card>
       </v-container>
   </v-app>
 </div>

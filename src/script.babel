@@ -526,6 +526,17 @@ let useStatUtils = () => {
   let rsLevelsRaw = [
     [1, 0, 83], [2, 83, 91], [3, 174, 102], [4, 276, 112], [5, 388, 124], [6, 512, 138], [7, 650, 151], [8, 801, 168], [9, 969, 185], [10, 1154, 204], [11, 1358, 226], [12, 1584, 249], [13, 1833, 274], [14, 2107, 304], [15, 2411, 335], [16, 2746, 369], [17, 3115, 408], [18, 3523, 450], [19, 3973, 497], [20, 4470, 548], [21, 5018, 606], [22, 5624, 667], [23, 6291, 737], [24, 7028, 814], [25, 7842, 898], [26, 8740, 990], [27, 9730, 1094], [28, 10824, 1207], [29, 12031, 1332], [30, 13363, 1470], [31, 14833, 1623], [32, 16456, 1791], [33, 18247, 1977], [34, 20224, 2182], [35, 22406, 2409], [36, 24815, 2658], [37, 27473, 2935], [38, 30408, 3240], [39, 33648, 3576], [40, 37224, 3947], [41, 41171, 4358], [42, 45529, 4810], [43, 50339, 5310], [44, 55649, 5863], [45, 61512, 6471], [46, 67983, 7144], [47, 75127, 7887], [48, 83014, 8707], [49, 91721, 9612], [50, 101333, 10612], [51, 111945, 11715], [52, 123660, 12934], [53, 136594, 14278], [54, 150872, 15764], [55, 166636, 17404], [56, 184040, 19214], [57, 203254, 21212], [58, 224466, 23420], [59, 247886, 25856], [60, 273742, 28546], [61, 302288, 31516], [62, 333804, 34795], [63, 368599, 38416], [64, 407015, 42413], [65, 449428, 46826], [66, 496254, 51699], [67, 547953, 57079], [68, 605032, 63019], [69, 668051, 69576], [70, 737627, 76818], [71, 814445, 84812], [72, 899257, 93638], [73, 992895, 103383], [74, 1096278, 114143], [75, 1210421, 126022], [76, 1336443, 139138], [77, 1475581, 153619], [78, 1629200, 169608], [79, 1798808, 187260], [80, 1986068, 206750], [81, 2192818, 228269], [82, 2421087, 252027], [83, 2673114, 278259], [84, 2951373, 307221], [85, 3258594, 339198], [86, 3597792, 374502], [87, 3972294, 413482], [88, 4385776, 456519], [89, 4842295, 504037], [90, 5346332, 556499], [91, 5902831, 614422], [92, 6517253, 678376], [93, 7195629, 748985], [94, 7944614, 826944], [95, 8771558, 913019], [96, 9684577, 1008052], [97, 10692629, 1112977], [98, 11805606, 1228825], [99, 13034431, 0]
   ];
+  
+  let getHumanReadableRsLevels = () => {
+    return rsLevelsRaw.reduce((acc, cur) => {
+      acc.push({
+        level: cur[0],
+        exp: cur[1],
+        expTillNext: cur[2]
+      })
+      return acc;
+    }, [])
+  }
 
   /* Attack styles and what EXP they grant per hit
   let attakStyles = [
@@ -630,25 +641,26 @@ let useStatUtils = () => {
     let endIndex = len-1;
     let midIndex;
 
+    midIndex = startIndex + Math.floor((endIndex-startIndex)/2);
+
     while(startIndex <= endIndex && iterations < maxIterations){
       iterations = iterations+1;
-      midIndex = startIndex + Math.floor((endIndex-startIndex)/2);
-      
-      if(range[endIndex] < target){
-          // if exceeds max return last level
-         return getResult(array[endIndex])
-      } else if(target < range[startIndex]){
-         // if somehow < 0 return 1;
-         return getResult(array[startIndex])
+
+      if(range[endIndex] <= target){
+        return getResult(array[endIndex])
       } else if(range[midIndex] <= target && target < range[clampRange(midIndex+1)]){
         return getResult(array[midIndex])
       } else if(range[clampRange(midIndex+1)] < target){
         startIndex = midIndex;
+        midIndex = startIndex + Math.floor((endIndex-startIndex)/2);
+      } else if(range[midIndex] < target) {
+        midIndex = midIndex + 1;
       } else {
         endIndex = midIndex;
+        midIndex = startIndex + Math.floor((endIndex-startIndex)/2);
       }
     }
-    return 1;
+    console.error('Issue with the BinarySearch');
   }
 
   // if the number is too long take the last 2 chars and clamp from 1 to 99
@@ -785,6 +797,7 @@ let useStatUtils = () => {
   
   
   return {
+    getHumanReadableRsLevels,
     combatStatKeys,
     makeSyncedExpStats,
     sanitizeLevel,
@@ -806,57 +819,71 @@ let useStatUtils = () => {
 
 //====================================================================================
 
-// Get presets stored in local storeage
+//                              LOCAL STORAGE PRESETS 
 
 //====================================================================================
 let useSavableStats = (stats) => {
   let records = ref([]);
 
 
-  let loadRecords = () => {
-    let parsed;
-    let results = [];
-    let recordString = localStorage.getItem('records');
+  let loadRecords       = () => {
+                            let parsed;
+                            let results = [];
+                            let recordString = localStorage.getItem('records');
 
-    if(typeof(recordString) !== 'undefined'){
-      parsed = JSON.parse(recordString);
-      if(Array.isArray(parsed)){
-        results = parsed;
-      }
-    }
-    records.value = results;
-  }
-  let saveRecords = () => {
-    let val = JSON.stringify(records.value);
-    localStorage.setItem('records', val);
-  }
+                            if(typeof(recordString) !== 'undefined'){
+                                parsed = JSON.parse(recordString);
+                                if(Array.isArray(parsed)){
+                                    results = parsed
+                                }
+                            }
+                            records.value = results;
+                        }
+  let saveRecords       = () => {
+                            let val = JSON.stringify(records.value);
+                            console.log('saved', val)
+                            localStorage.setItem('records', val);
+                        }
+
+  let removeRecord      = (i) => {
+                            records.value.splice(i, 1);
+                            saveRecords();
+                        }
+
+  let removeRecordByName = (name) => {
+                            let index = records.value.findIndex((item) => item.name === name);
+                            if(index > -1){
+                                removeRecord(index);
+                            }
+                        }                   
+  
+  let addRecord         = (name, config) => {
+                            removeRecordByName(name);
+                            let temp = [...records.value, {
+                                name, 
+                                config: {...config},
+                            }]
+                            records.value = temp;
+                            saveRecords();
+                        }
+  
+
+
+  let input = ref('');
+  let confirmCallback   = () => {
+                            addRecord(input.value, stats);
+                            input.value = '';
+                        }
+  let cancelCallback    = () => {
+                            input.value = '';
+                        }
+
+  let prompt            = usePrompt(false, confirmCallback);
+
 
   onMounted(() => {
     loadRecords();
   });
-  let addRecord = (name, config) => {
-    records.value.push({
-      name, 
-      config
-    });
-    saveRecords();
-  }
-  let removeRecord = (i) => {
-    records.value.splice(i, 1);
-    saveRecords();
-  }
-
-
-  let input = ref('');
-  let confirmCallback = () => {
-    addRecord(input.value, stats);
-    input.value = '';
-  }
-  let cancelCallback = () => {
-    input.value = '';
-  }
-
-  let prompt = usePrompt(false, confirmCallback);
 
   return {
     loadRecords,
@@ -868,7 +895,374 @@ let useSavableStats = (stats) => {
     input,
   }
 }
-      
+
+
+//====================================================================================
+
+//                                  COMBAT CALCULATOR
+
+//====================================================================================
+function useCombatCalc(statUtils) {
+    
+    const lockedStats = reactive({
+        attack:     false, 
+        strength:   false, 
+        defence:    false, 
+        hitpoints:  false, 
+        prayer:     false, 
+        ranged:     false, 
+        magic:      false,
+    });
+
+    
+    
+    let maximizeOffence   = useToggle(false);
+    let estimateHitpoints = useToggle(false);
+    
+    
+    
+    let scaler = 0.325;
+
+    // Weights are essentially the normalized value
+    let computeRangeWeight        = (value) => (Math.floor(value.ranged * 1.5) * scaler)      
+    let computeMagicWeight        = (value) => (Math.floor(value.magic * 1.5) * scaler)
+    let getRangeLevelFromWeight   = (weight) => (Math.floor((weight / scaler) / 1.5)); // inverse of computeRangeWeight
+
+    let getHpWeightValue          = (hp) => (hp/4)    
+    let getDefenceWeightValue     = (defence) => (defence/4)
+    let getPrayerWeightValue      = (prayer) => (prayer/8)
+    let computeDefenceWeight      = (value) => (getDefenceWeightValue(value.defence) + getHpWeightValue(value.hitpoints))
+    
+    let computeMeeleOffense       = (value) => ((value.attack + value.strength) * scaler)
+    let computeDistanceOffence    = (value) => (Math.max(computeRangeWeight(value), computeMagicWeight(value)))
+    
+    let computeEquivalentMeeleOffence     = (value) => (computeDistanceOffence(value) / scaler)
+    let calculateEstimatedHitpoints       = (baseExpVals, newExpVal) => {
+                                            let sumMeele = 0;
+                                            let sumRanged = 0;
+                                            let sumMagic = 0;
+
+                                            sumMeele += Math.max(0, parseFloat(newExpVal.attack - baseExpVals.attack));        
+                                            sumMeele += Math.max(0, parseFloat(newExpVal.strength - baseExpVals.strength)); 
+                                            sumMeele += Math.max(0, parseFloat(newExpVal.defence - baseExpVals.defence)); 
+
+                                            sumRanged += Math.max(0, parseFloat(newExpVal.ranged - baseExpVals.ranged));  
+                                            sumMagic += Math.max(0, parseFloat(newExpVal.magic - baseExpVals.magic));   
+
+                                            // Assuming Offensive/ defensive Meele and only offensive range and magic are used
+                                            let baseHpXp = parseFloat(baseExpVals.hitpoints);
+                                            return baseHpXp + (sumMeele/4*1.33) + (sumRanged/4*1.33) + (sumMagic/2*1.33)
+                                        }
+    let computeMeeleDeltaFromDistance     = (value, addedHpWeight=0) => {
+                                            let distanceWeight = Math.max(computeRangeWeight(value), computeMagicWeight(value));
+                                            let meeleWeight = (value.attack + value.strength)*scaler;
+
+                                            let meeleDelta = Math.floor((Math.ceil(distanceWeight - meeleWeight - addedHpWeight))/scaler)
+                                            return meeleDelta;
+                                        }
+    
+    
+    
+    // Link range and magic together since only the highest one matters
+    let linkedDistanceOffence = useToggle(false);
+
+    
+    
+    //==============================
+    
+    //        BASE VALUES
+    
+    //==============================
+    // Store the original values from when applied
+    const baseStats = statUtils.makeStats();
+    const baseExp = statUtils.makeStats(statUtils.convertStatLevelsToXp(baseStats))
+    let input = {
+        lvl:  {
+            ref: baseStats,
+            sanitize: statUtils.sanitizeLevel,
+            apply: statUtils.applyStats,
+            conversions: {
+            exp: statUtils.levelToXp
+            }
+        },
+        exp: {
+            ref: baseExp,
+            sanitize: statUtils.sanitizeExp,
+            apply: statUtils.applyStats,
+            conversions: {
+            lvl: statUtils.xpToLevel
+            }
+        }
+    }
+    let baseValues            = makeSyncObj(input);
+    let syncedBaseStats       = baseValues.lvl.computed;      
+    let syncedBaseExp         = baseValues.exp.computed;
+    let updateSyncedBaseStats = baseValues.lvl.update;
+    let updateSyncedBaseExp   = baseValues.exp.update;
+    
+    
+    //==============================
+    
+    //      CALCULATOR VALUES
+    
+    //==============================
+    const stats               = statUtils.makeStats();
+    const exp                 = statUtils.makeStats(statUtils.convertStatLevelsToXp(stats))
+    let computedLevelMutator  = (value) => {
+                                // Detect attributes being changed
+                                let oldValue = stats;
+                                let newValue = value;
+                                let alteringSkills = statUtils.combatStatKeys.reduce((acc, key) => {
+                                    acc[key] = parseInt(oldValue[key]) !== parseInt(newValue[key]);
+                                    return acc;
+                                }, {})
+                                
+                                
+                                // --------------------------------------------------------------
+                                // Based on input values determine which optimization to use
+                                // If only one value being altered detect if offensive stat 
+                                let alteringCategoryDominance = '';
+                                if(alteringSkills['ranged'] || alteringSkills['magic']){
+                                    alteringCategoryDominance = 'distance';
+                                }
+                                if(alteringSkills['attack'] || alteringSkills['strength']){
+                                    alteringCategoryDominance = 'meele';
+                                }
+                                
+                                if(maximizeOffence.isActive.value){
+                                    // If stats are the same and just being refreshed detect optimization to do
+                                    if(alteringCategoryDominance === ''){
+                                        let meeleWeight = computeMeeleOffense(value);
+                                        let distanceWeight = computeDistanceOffence(value);
+
+                                        if(meeleWeight > distanceWeight){
+                                        alteringCategoryDominance = 'meele';
+                                        } else if(distanceWeight > meeleWeight){
+                                        alteringCategoryDominance = 'distance';
+                                        }
+                                    }
+                                }
+                                // --------------------------------------------------------------
+
+
+                                
+                                
+                                // --------------------------------------------------------------
+                                // Link Ranges and Mage since only max value is used
+                                if(linkedDistanceOffence.isActive.value)
+                                    linkedValue(stats, value, 'magic', 'ranged');
+                                // --------------------------------------------------------------
+                                
+                                
+                                
+                                
+                                // --------------------------------------------------------------
+                                // Estimate Hitpoints
+                                let addedHpLevels = 0;
+                                if(estimateHitpoints.isActive.value){
+                                    let baseHitpoints = baseExp.hitpoints;
+                                    let convetedExp = statUtils.convertStatLevelsToXp(value);
+                                    let estimatedHpXp = calculateEstimatedHitpoints(baseExp, convetedExp);
+                                    let estimatedHpLvl = statUtils.xpToLevel(estimatedHpXp)
+
+                                    addedHpLevels = estimatedHpLvl - value.hitpoints;
+
+                                    value.hitpoints = Math.max(10, estimatedHpLvl);
+                                }
+                                // --------------------------------------------------------------
+
+
+
+                                // --------------------------------------------------------------
+                                // Maximize Meele
+                                
+                                // Change Meele levels based on Ranged
+                                if(maximizeOffence.isActive.value && alteringCategoryDominance === 'distance'){
+                                    // Get difference in (Att + Strength) required to equate to the ranged equivalent
+                                    let delta = computeMeeleDeltaFromDistance(value);
+
+                                    // Split the delta -----
+                                    let numNotLocked = 0;
+                                    if(!lockedStats.attack)
+                                        ++numNotLocked;
+                                    if(!lockedStats.strength)
+                                        ++numNotLocked;
+
+                                    if(numNotLocked == 2) {
+                                        // Split required level between the two almost equally - favoring str
+                                        let half = Math.ceil(delta/2);
+                                        value.strength = statUtils.clampLevel(value.strength + half);
+                                        value.attack = statUtils.clampLevel(value.attack + delta - half);
+                                    } else if(!lockedStats.attack){
+                                        value.attack = statUtils.clampLevel(value.attack + delta);
+                                    } else if(!lockedStats.strength){
+                                        value.strength = statUtils.clampLevel(value.strength + delta);
+                                    }
+                                } 
+
+                                // Change Range based on meele
+                                if(maximizeOffence.isActive.value && alteringCategoryDominance === 'meele'){
+                                    let rangedLvl = getRangeLevelFromWeight(computeMeeleOffense(value))
+
+                                    // Ranged and Magic are equivalent
+                                    value.ranged = statUtils.clampLevel(rangedLvl);              
+                                    value.magic = statUtils.clampLevel(rangedLvl);
+                                }
+                                // --------------------------------------------------------------
+                                
+                                
+                                return value;
+                            }
+    input = {
+    lvl:  {
+        ref:          stats,
+        sanitize:     statUtils.sanitizeLevel,
+        apply:        statUtils.applyStats,
+        mutator:      computedLevelMutator,
+        conversions:  {
+                        exp: statUtils.levelToXp
+                    }
+    },
+    exp: {
+        ref:          exp,
+        sanitize:     statUtils.sanitizeExp,
+        apply:        statUtils.applyStats,
+        conversions:  {
+                        lvl: statUtils.xpToLevel
+                    }
+    }
+    }
+    let calcValues        = makeSyncObj(input);
+    let syncedStats       = calcValues.lvl.computed;      
+    let syncedExp         = calcValues.exp.computed;
+    let updateSyncedStats = calcValues.lvl.update;
+    let updateSyncedExp   = calcValues.exp.update;
+    
+    
+    
+    // Update synced values when estimateHitpoints is toggled
+    watch([ 
+        estimateHitpoints.isActive, 
+        maximizeOffence.isActive, 
+        linkedDistanceOffence.isActive,
+        () => ({...lockedStats}),
+    ], (oldVal, newVal) => {
+        if(oldVal != newVal)
+            calcValues.lvl.computed.value = calcValues.lvl.computed.value;
+    })
+    
+    
+    
+    
+    // Action for "Use Stats"
+    let applyStatsToCalc = (newStats) => {
+                            
+                            // Remove locks and linked values
+                            linkedDistanceOffence.isActive.value = false;
+                            maximizeOffence.isActive.value = false;
+                            Object.keys(lockedStats).map(key => {
+                              lockedStats[key] = false;
+                            })
+                            
+                            // Update stats
+                            baseValues.exp.apply(newStats);
+                            calcValues.exp.apply(newStats);
+                        }
+
+    // Close Range
+    var meleeOffense      = computed(() => computeMeeleOffense(syncedStats.value));
+
+    let defWeight         = computed(() => computeDefenceWeight(syncedStats.value));
+    let prayerWeight      = computed(() => Math.floor(syncedStats.value.prayer / 8));
+    let baseWeight        = computed(() => (defWeight.value + prayerWeight.value));
+
+
+    // Distance
+    var rangeWeight       = computed(() => computeRangeWeight(syncedStats.value));
+    var mageWeight        = computed(() => computeMagicWeight(syncedStats.value));
+    var distanceOffence   = computed(() => computeDistanceOffence(syncedStats.value));
+
+    var cmbLvl            = computed(() => {
+                            var max = Math.max(meleeOffense.value, distanceOffence.value);
+                            var level = Math.round((baseWeight.value + max) * 100) / 100;
+                            return level;
+                        })
+
+
+
+    //===========================================================
+
+    // SYNC Methods to find maximal levels for combat level
+
+    //===========================================================
+
+    // Take ranged and mage and find meele stats which won't increase the combat lvl at all
+    
+    
+
+
+    
+    let deltaValues       = computed(() => {
+                            let delta = {
+                                lvl: {},
+                                exp: {},
+                            }
+                            
+                            statUtils.combatStatKeys.map(key => {
+                                delta.lvl[key] = calcValues.lvl.computed.value[key] - baseValues.lvl.computed.value[key];
+                                delta.exp[key] = calcValues.exp.computed.value[key] - baseValues.exp.computed.value[key];
+                            })
+                            
+                            return delta;
+                        })
+
+
+    return {
+    
+    // Player Stats Tabs
+    tabset: useTabset([
+        {label : 'Lookup', key: 'lookup', icon: 'mdi-magnify'},
+        {label : 'Levels', key: 'lvl', icon: 'mdi-chart-bar'},
+        {label : 'Experience', key: 'exp', icon: 'mdi-school'},
+    ], 'lvl'),
+            
+    
+    // Combat level
+    cmbLvl,
+    
+    // Base values for the calc brought over from the player stats input
+    baseValues,
+    lockedStats,
+    
+    // Preform optimizations on the stats
+    linkedDistanceOffence,
+    maximizeOffence,
+    estimateHitpoints,
+    
+    
+    // Calculator Stats
+    calcValues,
+    syncedStats,
+    syncedExp,
+    updateSyncedStats,
+    updateSyncedExp,
+    
+    
+    // Delta between base and CalcValues
+    deltaValues,
+    
+    
+    //distanceOffence,
+    //meleeOffense,
+
+    applyStatsToCalc,
+    getHumanReadableRsLevels: statUtils.getHumanReadableRsLevels,
+
+    //----------
+    }
+}
+//========================================================================
+    
 
 
 
@@ -895,12 +1289,12 @@ let useToggleWatchCallback = (defaultValue, valB, apply) => {
 
 
 
-//======================================================
 
-//                 STATS Component
+//====================================================================================
 
-//======================================================
+//                                  STATS COMPONENT
 
+//====================================================================================
 let statIcon = {
   template: '#stat-icon',
   props: ['src']
@@ -939,7 +1333,11 @@ let playerStats = {
 
 
 
+//====================================================================================
 
+//                                  VUE APPLICATION
+
+//====================================================================================
 new Vue({
   el: '#app',
   vuetify: new Vuetify(),
@@ -983,385 +1381,13 @@ new Vue({
           }
         }
       }
-    let playerValues            = makeSyncObj(input);
+    let playerValues = makeSyncObj(input);
     
     
 
      
 
 
-    //----------------------------------------------
-    // Combat Calc
-    function useCombatCalc(statUtils) {
-      
-      const lockedStats = reactive({
-        attack:     false, 
-        strength:   false, 
-        defence:    false, 
-        hitpoints:  false, 
-        prayer:     false, 
-        ranged:     false, 
-        magic:      false,
-      });
-
-      
-      
-      let maximizeOffence = useToggle(false);
-      let estimateHitpoints = useToggle(false);
-      
-      
-      
-      let scaler = 0.325;
-
-      // Weights are essentially the normalized value
-      let computeRangeWeight = (value) => (Math.floor(value.ranged * 1.5) * scaler)      
-      let computeMagicWeight = (value) => (Math.floor(value.magic * 1.5) * scaler)
-      let getRangeLevelFromWeight = (weight) => (Math.floor((weight / scaler) / 1.5)); // inverse of computeRangeWeight
-
-      let getHpWeightValue = (hp) => (hp/4)    
-      let getDefenceWeightValue = (defence) => (defence/4)
-      let getPrayerWeightValue = (prayer) => (prayer/8)
-      let computeDefenceWeight = (value) => (getDefenceWeightValue(value.defence) + getHpWeightValue(value.hitpoints))
-      
-      let computeMeeleOffense = (value) => ((value.attack + value.strength) * scaler)
-      let computeDistanceOffence = (value) => (Math.max(computeRangeWeight(value), computeMagicWeight(value)))
-      
-      let computeEquivalentMeeleOffence = (value) => (computeDistanceOffence(value) / scaler)
-      let calculateEstimatedHitpoints = (baseExpVals, newExpVal) => {
-        let sumMeele = 0;
-        let sumRanged = 0;
-        let sumMagic = 0;
-
-        sumMeele += Math.max(0, parseFloat(newExpVal.attack - baseExpVals.attack));        
-        sumMeele += Math.max(0, parseFloat(newExpVal.strength - baseExpVals.strength)); 
-        sumMeele += Math.max(0, parseFloat(newExpVal.defence - baseExpVals.defence)); 
-
-        sumRanged += Math.max(0, parseFloat(newExpVal.ranged - baseExpVals.ranged));  
-        sumMagic += Math.max(0, parseFloat(newExpVal.magic - baseExpVals.magic));   
-
-        // Assuming Offensive/ defensive Meele and only offensive range and magic are used
-        let baseHpXp = parseFloat(baseExpVals.hitpoints);
-        return baseHpXp + (sumMeele/4*1.33) + (sumRanged/4*1.33) + (sumMagic/2*1.33)
-      }
-      let computeMeeleDeltaFromDistance = (value, addedHpWeight=0) => {
-        let distanceWeight = Math.max(computeRangeWeight(value), computeMagicWeight(value));
-        let meeleWeight = (value.attack + value.strength)*scaler;
-
-        let meeleDelta = Math.floor((Math.ceil(distanceWeight - meeleWeight - addedHpWeight))/scaler)
-        return meeleDelta;
-      }
-      
-      
-      
-      // Link range and magic together since only the highest one matters
-      let linkedDistanceOffence = useToggle(false);
-
-      
-      
-      //==============================
-      
-      //        BASE VALUES
-      
-      //==============================
-      // Store the original values from when applied
-      const baseStats = statUtils.makeStats();
-      const baseExp = statUtils.makeStats(statUtils.convertStatLevelsToXp(baseStats))
-      let input = {
-        lvl:  {
-          ref: baseStats,
-          sanitize: statUtils.sanitizeLevel,
-          apply: statUtils.applyStats,
-          conversions: {
-            exp: statUtils.levelToXp
-          }
-        },
-        exp: {
-          ref: baseExp,
-          sanitize: statUtils.sanitizeExp,
-          apply: statUtils.applyStats,
-          conversions: {
-            lvl: statUtils.xpToLevel
-          }
-        }
-      }
-      let baseValues            = makeSyncObj(input);
-      let syncedBaseStats       = baseValues.lvl.computed;      
-      let syncedBaseExp         = baseValues.exp.computed;
-      let updateSyncedBaseStats = baseValues.lvl.update;
-      let updateSyncedBaseExp   = baseValues.exp.update;
-      
-      
-      //==============================
-      
-      //      CALCULATOR VALUES
-      
-      //==============================
-      const stats = statUtils.makeStats();
-      const exp   = statUtils.makeStats(statUtils.convertStatLevelsToXp(stats))
-      let computedLevelMutator = (value) => {
-        
-        let oldValue = stats;
-        let newValue = value;
-
-        // --------------------------------------------------------------
-        // Based on input values determine which optimization to use
-        // If only one value being altered detect if offensive stat 
-        let alteringCategory = '';
-        if(maximizeOffence.isActive.value){
-          if(parseInt(oldValue['ranged']) !== parseInt(newValue['ranged']) || parseInt(oldValue['magic']) !== parseInt(newValue['magic'])){
-            alteringCategory = 'ranged';
-          }
-          if(parseInt(oldValue['attack']) !== parseInt(newValue['attack']) || parseInt(oldValue['strength']) !== parseInt(newValue['strength'])){
-            alteringCategory = 'meele';
-          }
-
-          // If stats are the same and just being refreshed detect optimization to do
-          if(alteringCategory === ''){
-            let meeleWeight = computeMeeleOffense(value);
-            let distanceWeight = computeDistanceOffence(value);
-
-            if(meeleWeight > distanceWeight){
-              alteringCategory = 'meele';
-            } else if(distanceWeight > meeleWeight){
-              alteringCategory = 'ranged';
-            }
-          }
-        }
-        // --------------------------------------------------------------
-
-
-        
-        
-        // --------------------------------------------------------------
-        // Link Ranges and Mage since only max value is used
-        if(linkedDistanceOffence.isActive.value){
-          linkedValue(stats, value, 'ranged', 'magic');
-        }
-        // --------------------------------------------------------------
-        
-        
-        
-        
-        // --------------------------------------------------------------
-        // Estimate Hitpoints
-        let addedHpLevels = 0;
-        if(estimateHitpoints.isActive.value){
-          let baseHitpoints = baseExp.hitpoints;
-          let convetedExp = statUtils.convertStatLevelsToXp(value);
-          let estimatedHpXp = calculateEstimatedHitpoints(baseExp, convetedExp);
-          let estimatedHpLvl = statUtils.xpToLevel(estimatedHpXp)
-
-          addedHpLevels = estimatedHpLvl - value.hitpoints;
-
-          value.hitpoints = Math.max(10, estimatedHpLvl);
-        }
-        // --------------------------------------------------------------
-
-
-
-        // --------------------------------------------------------------
-        // Maximize Meele
-        
-        // Change Meele levels based on Ranged
-        if(maximizeOffence.isActive.value && alteringCategory === 'ranged'){
-          // Get difference in (Att + Strength) required to equate to the ranged equivalent
-          let delta = computeMeeleDeltaFromDistance(value);
-
-          // Split the delta -----
-          let numNotLocked = 0;
-          if(!lockedStats.attack)
-            ++numNotLocked;
-          if(!lockedStats.strength)
-            ++numNotLocked;
-
-          if(numNotLocked == 2) {
-            // Split required level between the two almost equally - favoring str
-            let half = Math.ceil(delta/2);
-            value.strength = value.strength + half;
-            value.attack = value.attack + delta - half;
-          } else if(!lockedStats.attack){
-            value.attack = value.attack + delta;
-          } else if(!lockedStats.strength){
-            value.strength = value.strength + delta;
-          }
-        } 
-
-        // Change Range based on meele
-        if(maximizeOffence.isActive.value && alteringCategory === 'meele'){
-          let rangedLvl = getRangeLevelFromWeight(computeMeeleOffense(value))
-
-          // Ranged and Magic are equivalent
-          value.ranged = rangedLvl;              
-          value.magic = rangedLvl;
-        }
-        // --------------------------------------------------------------
-        
-        
-        
-        
-        return value;
-      }
-      input = {
-        lvl:  {
-          ref: stats,
-          sanitize: statUtils.sanitizeLevel,
-          apply: statUtils.applyStats,
-          mutator: computedLevelMutator,
-          conversions: {
-            exp: statUtils.levelToXp
-          }
-        },
-        exp: {
-          ref: exp,
-          sanitize: statUtils.sanitizeExp,
-          apply: statUtils.applyStats,
-          conversions: {
-            lvl: statUtils.xpToLevel
-          }
-        }
-      }
-      
-      let calcValues        = makeSyncObj(input);
-      let syncedStats       = calcValues.lvl.computed;      
-      let syncedExp         = calcValues.exp.computed;
-      let updateSyncedStats = calcValues.lvl.update;
-      let updateSyncedExp   = calcValues.exp.update;
-      
-      // When toggled on set to max value
-      watch(linkedDistanceOffence.isActive, (oldVal, newVal) => {
-        if(oldVal != newVal && newVal){
-          let ref = calcValues.lvl.computed;
-          ref.value.ranged = ref.value.magic = Math.max(ref.value.ranged, ref.value.magic);
-        }
-      })
-      
-      
-      
-      // Update synced values when estimateHitpoints is toggled
-      watch([estimateHitpoints.isActive, maximizeOffence.isActive], (oldVal, newVal) => {
-        if(oldVal != newVal){
-          calcValues.lvl.computed.value = calcValues.lvl.computed.value;
-        }
-      })
-      
-      
-      
-      // Action for "Use Stats"
-      let applyStatsToCalc = (newStats) => {
-        
-        // Remove locks and linked values
-        linkedDistanceOffence.isActive.value = false;
-        maximizeOffence.isActive.value = false;
-        Object.keys(lockedStats).map(key => {
-          lockedStats[key] = false;
-        })
-        
-        // Update stats
-        baseValues.lvl.apply(newStats);
-        calcValues.lvl.apply(newStats);
-      }
-
-     
-      
-
-
-      // Close Range
-      var meleeOffense = computed(() => computeMeeleOffense(syncedStats.value));
-
-      let defWeight = computed(() => computeDefenceWeight(syncedStats.value));
-      let prayerWeight = computed(() => Math.floor(syncedStats.value.prayer / 8));
-      let baseWeight = computed(() => (defWeight.value + prayerWeight.value));
-
-
-      // Distance
-      var rangeWeight = computed(() => computeRangeWeight(syncedStats.value));
-      var mageWeight = computed(() => computeMagicWeight(syncedStats.value));
-      var distanceOffence = computed(() => computeDistanceOffence(syncedStats.value));
-
-      var cmbLvl = computed(() => {
-        var max = Math.max(meleeOffense.value, distanceOffence.value);
-        var level = Math.round((baseWeight.value + max) * 100) / 100;
-        return level;
-      })
-
-
-
-      //===========================================================
-
-      // SYNC Methods to find maximal levels for combat level
-
-      //===========================================================
-
-      // Take ranged and mage and find meele stats which won't increase the combat lvl at all
-      
-     
-
-
-      
-      let deltaValues = computed(() => {
-        let delta = {
-          lvl: {},
-          exp: {},
-        }
-        
-        statUtils.combatStatKeys.map(key => {
-          delta.lvl[key] = calcValues.lvl.computed.value[key] - baseValues.lvl.computed.value[key];
-          delta.exp[key] = calcValues.exp.computed.value[key] - baseValues.exp.computed.value[key];
-        })
-        
-        return delta;
-      })
-
-
-      
-      
-      
-      
-      return {
-        
-        // Player Stats Tabs
-        tabset: useTabset([
-          {label : 'Lookup', key: 'lookup', icon: 'mdi-magnify'},
-          {label : 'Levels', key: 'lvl', icon: 'mdi-chart-bar'},
-          {label : 'Experience', key: 'exp', icon: 'mdi-school'},
-        ], 'lvl'),
-                
-        
-        // Combat level
-        cmbLvl,
-        
-        // Base values for the calc brought over from the player stats input
-        baseValues,
-        lockedStats,
-        
-        // Preform optimizations on the stats
-        linkedDistanceOffence,
-        maximizeOffence,
-        estimateHitpoints,
-        
-        
-        // Calculator Stats
-        calcValues,
-        syncedStats,
-        syncedExp,
-        updateSyncedStats,
-        updateSyncedExp,
-        
-        
-        // Delta between base and CalcValues
-        deltaValues,
-        
-        
-        //distanceOffence,
-        //meleeOffense,
-
-        applyStatsToCalc,
-
-        //----------
-      }
-    }
-    //----------------------------------------------
-    
     
     
     //----------------------------------------------
@@ -1372,18 +1398,18 @@ new Vue({
     
     //----------------------------------------------
     // Make Radar Graph 
-    let order = ['strength', 'attack', 'prayer', 'defence', 'hitpoints', 'magic', 'ranged'];
-    let chartData = computed(() => {
-      return {
-        labels: order.map(item => _.upperFirst(item)),
-        datasets: [
-          {
-            label: 'Stats',
-            data: order.map(skill => combatCalc.calcValues.lvl.computed.value[skill]),
-          }
-        ]
-      };
-    })
+    let order       = ['hitpoints', 'prayer', 'strength', 'attack', 'magic', 'ranged', 'defence' ];
+    let chartData   = computed(() => {
+                        return {
+                            labels: order.map(item => _.upperFirst(item)),
+                            datasets: [
+                            {
+                                label: 'Stats',
+                                data: order.map(skill => combatCalc.calcValues.lvl.computed.value[skill]),
+                            }
+                            ]
+                        };
+                    })
     let { redraw: redrawChart } = useRadarChart('myChart', chartData);
     //----------------------------------------------
     
@@ -1396,7 +1422,7 @@ new Vue({
 
     
     // Make a toggle to sync the player stats to the calculator
-    let liveStatSync = useToggleWatchCallback(true, playerStats, (val) => combatCalc.applyStatsToCalc(val));
+    let liveStatSync = useToggleWatchCallback(false, playerExp, (val) => combatCalc.applyStatsToCalc(val));
     let {isActive: isLiveStatSync, toggle: toggleLiveStatSync } = liveStatSync;
     
     let storedStats = useSavableStats(playerStats)
@@ -1405,7 +1431,8 @@ new Vue({
     
 
     let applyStatsToPlayer = (newStats) => {
-      playerValues.lvl.computed.value = newStats
+      console.log('applyStatsToPlayer', newStats)
+      playerValues.lvl.computed.value = JSON.parse(JSON.stringify(newStats))
     };
     
     let playerStatsSidebar = useToggle(false);
@@ -1472,6 +1499,10 @@ new Vue({
     
     
     
+    let applyExpFromCalc = (values) => {
+      playerValues.exp.computed.value = {...values};
+    }
+    
     return {
       playerStatsSidebar,
       cardStyle,
@@ -1488,9 +1519,8 @@ new Vue({
       playerValues,
       accountConfigs,
       storedStats,
-      playerStats,
-      playerExp,
       applyStatsToPlayer,
+      applyExpFromCalc,
 
       // Sync stats to calc
       liveStatSync,

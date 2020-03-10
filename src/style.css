@@ -4,18 +4,18 @@
     content: '';
     background-color: rgba(0, 0, 0, .26);
     height: 10px;
-    width: 1px;
+    width: 2px;
     display: block;
     margin: auto;
-    transform: translate(100%, calc(-100% - 2px));
+    transform: translate(calc(100%), calc(-100% - 2px));
 }
 
-
-
-
+/* Hide application untill loaded */
 [v-cloak] {display: none}
 
 
+
+/* custom spacings */
 td.skill_slider_cell {
   padding-bottom: 20px;
 }
