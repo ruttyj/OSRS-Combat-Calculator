@@ -1,4 +1,5 @@
-# OSRS Combat Calculator - Vue Composition API (Work in progress)
+# OSRS Combat Calculator - Vue Composition API 
+# (Work in progress)
 
 This is an experiment to test out the new Vue Composition API which will offically be released with VueJS 3.0. 
 
