@@ -1,8 +1,106 @@
+/**
+ *      OLDSCHOOL RUNESCAPE COMBAT CALCULATOR
+ *
+ *            *** WORK IN PROGRESS ***
+ *
+ **/
+
 const { ref, computed, watch, onMounted, onUnmounted, reactive } = window.vueCompositionApi;
 
 Vue.config.productionTip = false;
 Vue.use(vueCompositionApi.default);
 
+
+
+
+
+//========================================================================
+
+// Make a computed value which syncs converted values to multiple objects
+
+//========================================================================
+let makeComputedConversionSync = (base, conversions) => {
+  return computed({
+    get() {
+      return base.ref;
+    },
+    set(input) {
+      let newVal = typeof base.mutator !== 'undefined' ? base.mutator(input) : input;
+
+      let oldVal = base.ref;
+
+      // Create an empty object for each conversion
+      let newBase = {};
+      let conversionQueue = conversions.map(item => ({}));
+
+      let hasChanges = false;
+      let keys = Object.keys(newVal);
+      keys.map(key => {
+        // If attributes have changed
+        let val = base.sanitize(newVal[key]);
+        if (typeof oldVal === 'undefined' || val != base.sanitize(oldVal[key])) {
+          // Accumilate new values
+          newBase[key] = val;
+
+          // Accumilate converted values
+          conversions.map((item, i) => {
+            conversionQueue[i][key] = item.convert(val);
+          });
+          hasChanges = true;
+        }
+      });
+
+      // Apply changes
+      if (hasChanges) {
+        base.apply(base.ref, newBase);
+        conversions.map((item, i) => {
+          item.apply(item.ref, conversionQueue[i]);
+        });
+      }
+    } });
+
+};
+
+
+//====================================================================================
+
+// Create a series of object which will automatically convert to all specified units
+// Ex: updating the level will also update the EXP and vice versa
+
+//====================================================================================
+let makeSyncObj = units => {
+  let keys = Object.keys(units);
+
+  let makeApplySync = (ref, apply) => val => {
+    //apply(ref, val);
+    ref.value = { ...ref, ...val };
+  };
+
+  // Method requried to update synced reactivly
+  let makeUpdateSync = (ref, sanitize = x => x) => (key, value) => {
+    let temp = { ...ref.value };
+    temp[key] = sanitize(value);
+    ref.value = temp;
+  };
+
+  let results = {};
+  keys.map(key => {
+    let unit = units[key];
+    let conversions = unit.conversions || {};
+    let conversionKeys = Object.keys(conversions);
+    let buildConversionSpec = cKey => ({
+      ...units[cKey],
+      convert: conversions[cKey] });
+
+    let computedRef = makeComputedConversionSync(unit, conversionKeys.map(buildConversionSpec));
+    results[key] = {
+      computed: computedRef,
+      apply: makeApplySync(computedRef, unit.apply),
+      update: makeUpdateSync(computedRef, unit.sanitize) };
+
+  });
+  return results;
+};
 
 
 
@@ -170,7 +268,7 @@ let useRadarChart = (chartId, chartData) => {
             display: false },
 
           ticks: {
-            suggestedMin: 1,
+            suggestedMin: -1,
             suggestedMax: 99 } } } });
 
 
@@ -195,6 +293,15 @@ let useRadarChart = (chartId, chartData) => {
       }
     });
   });
+
+  let redraw = () => {
+    if (typeof playerChart !== 'undefined')
+    playerChart.update();
+  };
+
+  return {
+    redraw };
+
 };
 //------------------------------------------------------
 
@@ -206,66 +313,19 @@ let useRadarChart = (chartId, chartData) => {
 //                 LINK TWO VALUES
 
 //======================================================
-let makeLinkedValueToggle = (defaultValue, objA, fieldA, objB, fieldB, mode = 'first') => {
-  const isActive = ref(defaultValue);
+let linkedValue = (oldVal, newVal, fieldA, fieldB) => {
 
-  let toggle = () => {
-    isActive.value = !isActive.value;
-  };
-
-  watch(isActive, (newVal, oldVal) => {
-    if (isActive.value && newVal != oldVal) {
-      if (mode == 'first')
-      objA[fieldA] = objB[fieldB];else
-      if (mode == 'max')
-      objA[fieldA] = objB[fieldB] = Math.max(objA[fieldA], objB[fieldB]);else
-      if (mode == 'min')
-      objA[fieldA] = objB[fieldB] = Math.min(objA[fieldA], objB[fieldB]);
-    }
-  });
-  watch(() => objA[fieldA], (newVal, oldVal) => {
-    if (isActive.value && newVal != oldVal)
-    objB[fieldB] = objA[fieldA];
-  });
-  watch(() => objB[fieldB], (newVal, oldVal) => {
-    if (isActive.value && newVal != oldVal) {
-      objA[fieldA] = objB[fieldB];
-    }
-  });
-
-  return {
-    isActive,
-    toggle };
-
+  // If the A field has not changes sync it
+  if (oldVal[fieldA] == newVal[fieldA]) {
+    newVal[fieldA] = newVal[fieldB];
+  } else {
+    console.log('same b');
+    newVal[fieldB] = newVal[fieldA];
+  }
 };
 //------------------------------------------------------
 
 
-//======================================================
-
-//                 LINK TWO VALUES
-
-//======================================================
-let makeLiveSync = (defaultValue, valA, valB) => {
-  let isActive = ref(defaultValue);
-
-  let toggle = () => {
-    isActive.value = !isActive.value;
-  };
-
-  watch([isActive, () => ({ ...valB })], newVal => {
-    if (isActive.value) {
-      Object.keys(valB).map(key => {
-        valA[key] = valB[key];
-      });
-    }
-  });
-
-  return {
-    isActive,
-    toggle };
-
-};
 //------------------------------------------------------
 
 
@@ -356,8 +416,8 @@ let usePrompt = (defaultValue = false, confirmCallback = () => {}, cancelCallbac
 //                      TabSet
 
 //======================================================
-let useTabset = tabLabels => {
-  let tab = ref(0);
+let useTabset = (tabLabels, defaultValue = 0) => {
+  let tab = ref(defaultValue);
   let tabs = ref(tabLabels);
 
   return {
@@ -467,30 +527,133 @@ let useStatUtils = () => {
   [1, 0, 83], [2, 83, 91], [3, 174, 102], [4, 276, 112], [5, 388, 124], [6, 512, 138], [7, 650, 151], [8, 801, 168], [9, 969, 185], [10, 1154, 204], [11, 1358, 226], [12, 1584, 249], [13, 1833, 274], [14, 2107, 304], [15, 2411, 335], [16, 2746, 369], [17, 3115, 408], [18, 3523, 450], [19, 3973, 497], [20, 4470, 548], [21, 5018, 606], [22, 5624, 667], [23, 6291, 737], [24, 7028, 814], [25, 7842, 898], [26, 8740, 990], [27, 9730, 1094], [28, 10824, 1207], [29, 12031, 1332], [30, 13363, 1470], [31, 14833, 1623], [32, 16456, 1791], [33, 18247, 1977], [34, 20224, 2182], [35, 22406, 2409], [36, 24815, 2658], [37, 27473, 2935], [38, 30408, 3240], [39, 33648, 3576], [40, 37224, 3947], [41, 41171, 4358], [42, 45529, 4810], [43, 50339, 5310], [44, 55649, 5863], [45, 61512, 6471], [46, 67983, 7144], [47, 75127, 7887], [48, 83014, 8707], [49, 91721, 9612], [50, 101333, 10612], [51, 111945, 11715], [52, 123660, 12934], [53, 136594, 14278], [54, 150872, 15764], [55, 166636, 17404], [56, 184040, 19214], [57, 203254, 21212], [58, 224466, 23420], [59, 247886, 25856], [60, 273742, 28546], [61, 302288, 31516], [62, 333804, 34795], [63, 368599, 38416], [64, 407015, 42413], [65, 449428, 46826], [66, 496254, 51699], [67, 547953, 57079], [68, 605032, 63019], [69, 668051, 69576], [70, 737627, 76818], [71, 814445, 84812], [72, 899257, 93638], [73, 992895, 103383], [74, 1096278, 114143], [75, 1210421, 126022], [76, 1336443, 139138], [77, 1475581, 153619], [78, 1629200, 169608], [79, 1798808, 187260], [80, 1986068, 206750], [81, 2192818, 228269], [82, 2421087, 252027], [83, 2673114, 278259], [84, 2951373, 307221], [85, 3258594, 339198], [86, 3597792, 374502], [87, 3972294, 413482], [88, 4385776, 456519], [89, 4842295, 504037], [90, 5346332, 556499], [91, 5902831, 614422], [92, 6517253, 678376], [93, 7195629, 748985], [94, 7944614, 826944], [95, 8771558, 913019], [96, 9684577, 1008052], [97, 10692629, 1112977], [98, 11805606, 1228825], [99, 13034431, 0]];
 
 
+  /* Attack styles and what EXP they grant per hit
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          let attakStyles = [
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Accurate",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Meele",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                attack: 4,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "agressive",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Meele",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                strength: 4,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Defensive",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Meele",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                defence: 4,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Controlled",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Meele",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                attack: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                strength: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                defence: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Accurate",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Ranged",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                range: 4,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Cannon",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Ranged",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                range: 1,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Rapid",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Ranged",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                range: 4,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Defensive",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Ranged",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                range: 2,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                defence: 2,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Offensive",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Magic",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                magic: 2,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              style: "Defensive",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              type: "Magic",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              exp: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                magic: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                defence: 1,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                hitpoints: 1.33,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ];
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          */
+
+
   let binaryLvlSearch = (array, target, getExp = x => x, getResult = x => x) => {
     target = parseFloat(target);
-    target = isNaN(target) ? 0 : target;
+    let maxIterations = Math.floor(rsLevelsRaw.length / 2);
+    let iterations = 0;
+    maxIterations = 10;
+
+    let clampRange = input => Math.min(Math.max(0, input), len - 1);
+    let range = array.map(getExp);
+    let len = range.length;
 
     let startIndex = 0;
-    let maxIndex = array.length - 1;
-    let endIndex = maxIndex;
-    if (target <= getExp(array[0])) {
-      return array[0];
-    } else {
-      while (startIndex <= endIndex) {
-        let middleIndex = Math.floor((startIndex + endIndex) / 2);
-        let stepBeforeIndex = Math.max(0, middleIndex - 1);
-        if (getExp(array[stepBeforeIndex]) <= target && target < getExp(array[middleIndex]))
-        return getResult(array[stepBeforeIndex]);
-        if (target > getExp(array[middleIndex]))
-        startIndex = middleIndex + 1;
-        if (target < getExp(array[middleIndex]))
-        endIndex = middleIndex - 1;
-        if (endIndex < startIndex)
-        return getResult(array[maxIndex]);
+    let endIndex = len - 1;
+    let midIndex;
+
+    while (startIndex <= endIndex && iterations < maxIterations) {
+      iterations = iterations + 1;
+      midIndex = startIndex + Math.floor((endIndex - startIndex) / 2);
+
+      if (range[endIndex] < target) {
+        // if exceeds max return last level
+        return getResult(array[endIndex]);
+      } else if (target < range[startIndex]) {
+        // if somehow < 0 return 1;
+        return getResult(array[startIndex]);
+      } else if (range[midIndex] <= target && target < range[clampRange(midIndex + 1)]) {
+        return getResult(array[midIndex]);
+      } else if (range[clampRange(midIndex + 1)] < target) {
+        startIndex = midIndex;
+      } else {
+        endIndex = midIndex;
       }
     }
+    return 1;
   };
+
+  // if the number is too long take the last 2 chars and clamp from 1 to 99
+  let clampLevel = lvl => Math.min(Math.max(1, parseInt(lvl)), 99);
+  let wrapLevel = lvl => Math.min(Math.max(1, parseInt(String(lvl).slice(-2))), 99);
 
   let applyStats = (oldStats, newStats) => {
     let keys = Object.keys(newStats);
@@ -501,7 +664,26 @@ let useStatUtils = () => {
   };
 
 
+  let combatStatKeys = ['attack', 'strength', 'defence', 'hitpoints', 'prayer', 'ranged', 'magic'];
+
+
   let makeStats = (override = {}) => {
+    let temp = {};
+    if (typeof override === 'object') {
+      temp = override;
+    } else {
+      let i = parseInt(override);
+      temp = {
+        attack: i,
+        strength: i,
+        defence: i,
+        hitpoints: i,
+        prayer: i,
+        ranged: i,
+        magic: i };
+
+    }
+
     return reactive({
       attack: 1,
       strength: 1,
@@ -510,16 +692,16 @@ let useStatUtils = () => {
       prayer: 1,
       ranged: 1,
       magic: 1,
-      ...override });
+      ...temp });
 
   };
 
 
   let levelToXp = level => {
-    let lvlData = rsLevelsRaw.find(item => getRsLevel(item) === parseFloat(level));
+    let lvlData = rsLevelsRaw[clampLevel(level) - 1];
     if (typeof lvlData !== 'undefined')
     return getRsExp(lvlData);
-    return 1;
+    return 0;
   };
 
 
@@ -558,7 +740,6 @@ let useStatUtils = () => {
     return totalExp;
   };
 
-  let clampLevel = lvl => Math.min(Math.max(1, lvl), 99);
 
 
   let sanitizeLevel = val => {
@@ -574,12 +755,42 @@ let useStatUtils = () => {
     return Math.max(temp, 0);
   };
 
+  // Sync Exp and levels 
+  let makeSyncedExpStats = (lvlRef, expRef) => {
+    // Levels
+    let base = {
+      ref: lvlRef,
+      sanitize: sanitizeLevel,
+      apply: applyStats };
+
+
+    // Experiance
+    let base2 = {
+      ref: expRef,
+      sanitize: sanitizeExp,
+      apply: applyStats };
+
+
+    // Synchronize the Stats and Exp values 
+    let syncLvls = makeComputedConversionSync(base, [
+    { ...base2, convert: levelToXp }]);
+
+
+    let syncExp = makeComputedConversionSync(base2, [
+    { ...base, convert: xpToLevel }]);
+
+
+    return [syncLvls, syncExp];
+  };
 
 
   return {
+    combatStatKeys,
+    makeSyncedExpStats,
     sanitizeLevel,
     sanitizeExp,
     clampLevel,
+    wrapLevel,
     levelToXp,
     xpToLevel,
     applyStats,
@@ -591,53 +802,13 @@ let useStatUtils = () => {
 };
 
 
-//======================================================
-
-// Make Computed which syncs multiple converted values
-
-//======================================================
-let makeComputedConversionSync = (base, conversions) => {
-  return computed({
-    get() {
-      return base.ref;
-    },
-    set(newVal) {
-      let oldVal = base.ref;
-
-      // Create an empty object for each conversion
-      let newBase = {};
-      let conversionQueue = conversions.map(item => ({}));
-
-      let hasChanges = false;
-      let keys = Object.keys(newVal);
-      keys.map(key => {
-        // If attributes have changed
-        let val = base.sanitize(newVal[key]);
-        if (typeof oldVal === 'undefined' || val != base.sanitize(oldVal[key])) {
-          // Accumilate new values
-          newBase[key] = val;
-
-          // Accumilate converted values
-          conversions.map((item, i) => {
-            conversionQueue[i][key] = item.convert(val);
-          });
-          hasChanges = true;
-        }
-      });
-
-      // Apply changes
-      if (hasChanges) {
-        base.apply(base.ref, newBase);
-        conversions.map((item, i) => {
-          item.apply(item.ref, conversionQueue[i]);
-        });
-      }
-    } });
-
-};
 
 
+//====================================================================================
 
+// Get presets stored in local storeage
+
+//====================================================================================
 let useSavableStats = stats => {
   let records = ref([]);
 
@@ -701,6 +872,26 @@ let useSavableStats = stats => {
 
 
 
+// Sync two values when active
+let useToggleWatchCallback = (defaultValue, valB, apply) => {
+  let isActive = ref(defaultValue);
+
+  let toggle = () => {
+    isActive.value = !isActive.value;
+  };
+
+  watch([isActive, () => ({ ...valB })], newVal => {
+    if (isActive.value) {
+      apply(valB);
+    }
+  });
+
+  return {
+    isActive,
+    toggle };
+
+};
+
 
 
 
@@ -724,11 +915,11 @@ let playerStats = {
     updateAttr(field, value) {
       let temp = { ...this.playerStats };
       temp[field] = value;
-      this.c_playerStats = temp;
+      this.playerStatsInput = temp;
     } },
 
   computed: {
-    c_playerStats: {
+    playerStatsInput: {
       get() {
         return this.playerStats;
       },
@@ -764,36 +955,36 @@ new Vue({
     let checkIcon = val => val ? 'mdi-check-bold' : 'mdi-close';
 
 
-
-
     let statUtils = useStatUtils();
 
-    const playerStats = statUtils.makeStats();
+
+
+    // Make variables for the initial player input
+    const playerStats = statUtils.makeStats(40);
     const playerExp = statUtils.makeStats(statUtils.convertStatLevelsToXp(playerStats));
 
-    let c_playerExp;
-    let c_playerStats;
 
-    // Levels
-    let base = {
-      ref: playerStats,
-      sanitize: statUtils.sanitizeLevel,
-      apply: statUtils.applyStats };
-
-
-    // Experiance
-    let base2 = {
-      ref: playerExp,
-      sanitize: statUtils.sanitizeExp,
-      apply: statUtils.applyStats };
+    // Synchronize the Stats and Exp values 
+    let input = {
+      lvl: {
+        ref: playerStats,
+        sanitize: statUtils.sanitizeLevel,
+        apply: statUtils.applyStats,
+        conversions: {
+          exp: statUtils.levelToXp } },
 
 
-    c_playerStats = makeComputedConversionSync(base, [
-    { ...base2, convert: statUtils.levelToXp }]);
+      exp: {
+        ref: playerExp,
+        sanitize: statUtils.sanitizeExp,
+        apply: statUtils.applyStats,
+        conversions: {
+          lvl: statUtils.xpToLevel } } };
 
 
-    c_playerExp = makeComputedConversionSync(base2, [
-    { ...base, convert: statUtils.xpToLevel }]);
+
+    let playerValues = makeSyncObj(input);
+
 
 
 
@@ -802,18 +993,6 @@ new Vue({
     //----------------------------------------------
     // Combat Calc
     function useCombatCalc(statUtils) {
-      const stats = reactive({
-        attack: 40,
-        strength: 47,
-        defence: 1,
-        hitpoints: 44,
-        prayer: 1,
-        ranged: 47,
-        magic: 44 });
-
-
-
-
 
       const lockedStats = reactive({
         attack: false,
@@ -827,22 +1006,277 @@ new Vue({
 
 
 
+      let maximizeOffence = useToggle(false);
+      let estimateHitpoints = useToggle(false);
+
 
 
       let scaler = 0.325;
 
+      // Weights are essentially the normalized value
+      let computeRangeWeight = value => Math.floor(value.ranged * 1.5) * scaler;
+      let computeMagicWeight = value => Math.floor(value.magic * 1.5) * scaler;
+      let getRangeLevelFromWeight = weight => Math.floor(weight / scaler / 1.5); // inverse of computeRangeWeight
+
+      let getHpWeightValue = hp => hp / 4;
+      let getDefenceWeightValue = defence => defence / 4;
+      let getPrayerWeightValue = prayer => prayer / 8;
+      let computeDefenceWeight = value => getDefenceWeightValue(value.defence) + getHpWeightValue(value.hitpoints);
+
+      let computeMeeleOffense = value => (value.attack + value.strength) * scaler;
+      let computeDistanceOffence = value => Math.max(computeRangeWeight(value), computeMagicWeight(value));
+
+      let computeEquivalentMeeleOffence = value => computeDistanceOffence(value) / scaler;
+      let calculateEstimatedHitpoints = (baseExpVals, newExpVal) => {
+        let sumMeele = 0;
+        let sumRanged = 0;
+        let sumMagic = 0;
+
+        sumMeele += Math.max(0, parseFloat(newExpVal.attack - baseExpVals.attack));
+        sumMeele += Math.max(0, parseFloat(newExpVal.strength - baseExpVals.strength));
+        sumMeele += Math.max(0, parseFloat(newExpVal.defence - baseExpVals.defence));
+
+        sumRanged += Math.max(0, parseFloat(newExpVal.ranged - baseExpVals.ranged));
+        sumMagic += Math.max(0, parseFloat(newExpVal.magic - baseExpVals.magic));
+
+        // Assuming Offensive/ defensive Meele and only offensive range and magic are used
+        let baseHpXp = parseFloat(baseExpVals.hitpoints);
+        return baseHpXp + sumMeele / 4 * 1.33 + sumRanged / 4 * 1.33 + sumMagic / 2 * 1.33;
+      };
+      let computeMeeleDeltaFromDistance = (value, addedHpWeight = 0) => {
+        let distanceWeight = Math.max(computeRangeWeight(value), computeMagicWeight(value));
+        let meeleWeight = (value.attack + value.strength) * scaler;
+
+        let meeleDelta = Math.floor(Math.ceil(distanceWeight - meeleWeight - addedHpWeight) / scaler);
+        return meeleDelta;
+      };
+
+
+
+      // Link range and magic together since only the highest one matters
+      let linkedDistanceOffence = useToggle(false);
+
+
+
+      //==============================
+
+      //        BASE VALUES
+
+      //==============================
+      // Store the original values from when applied
+      const baseStats = statUtils.makeStats();
+      const baseExp = statUtils.makeStats(statUtils.convertStatLevelsToXp(baseStats));
+      let input = {
+        lvl: {
+          ref: baseStats,
+          sanitize: statUtils.sanitizeLevel,
+          apply: statUtils.applyStats,
+          conversions: {
+            exp: statUtils.levelToXp } },
+
+
+        exp: {
+          ref: baseExp,
+          sanitize: statUtils.sanitizeExp,
+          apply: statUtils.applyStats,
+          conversions: {
+            lvl: statUtils.xpToLevel } } };
+
+
+
+      let baseValues = makeSyncObj(input);
+      let syncedBaseStats = baseValues.lvl.computed;
+      let syncedBaseExp = baseValues.exp.computed;
+      let updateSyncedBaseStats = baseValues.lvl.update;
+      let updateSyncedBaseExp = baseValues.exp.update;
+
+
+      //==============================
+
+      //      CALCULATOR VALUES
+
+      //==============================
+      const stats = statUtils.makeStats();
+      const exp = statUtils.makeStats(statUtils.convertStatLevelsToXp(stats));
+      let computedLevelMutator = value => {
+
+        let oldValue = stats;
+        let newValue = value;
+
+        // --------------------------------------------------------------
+        // Based on input values determine which optimization to use
+        // If only one value being altered detect if offensive stat 
+        let alteringCategory = '';
+        if (maximizeOffence.isActive.value) {
+          if (parseInt(oldValue['ranged']) !== parseInt(newValue['ranged']) || parseInt(oldValue['magic']) !== parseInt(newValue['magic'])) {
+            alteringCategory = 'ranged';
+          }
+          if (parseInt(oldValue['attack']) !== parseInt(newValue['attack']) || parseInt(oldValue['strength']) !== parseInt(newValue['strength'])) {
+            alteringCategory = 'meele';
+          }
+
+          // If stats are the same and just being refreshed detect optimization to do
+          if (alteringCategory === '') {
+            let meeleWeight = computeMeeleOffense(value);
+            let distanceWeight = computeDistanceOffence(value);
+
+            if (meeleWeight > distanceWeight) {
+              alteringCategory = 'meele';
+            } else if (distanceWeight > meeleWeight) {
+              alteringCategory = 'ranged';
+            }
+          }
+        }
+        // --------------------------------------------------------------
+
+
+
+
+        // --------------------------------------------------------------
+        // Link Ranges and Mage since only max value is used
+        if (linkedDistanceOffence.isActive.value) {
+          linkedValue(stats, value, 'ranged', 'magic');
+        }
+        // --------------------------------------------------------------
+
+
+
+
+        // --------------------------------------------------------------
+        // Estimate Hitpoints
+        let addedHpLevels = 0;
+        if (estimateHitpoints.isActive.value) {
+          let baseHitpoints = baseExp.hitpoints;
+          let convetedExp = statUtils.convertStatLevelsToXp(value);
+          let estimatedHpXp = calculateEstimatedHitpoints(baseExp, convetedExp);
+          let estimatedHpLvl = statUtils.xpToLevel(estimatedHpXp);
+
+          addedHpLevels = estimatedHpLvl - value.hitpoints;
+
+          value.hitpoints = Math.max(10, estimatedHpLvl);
+        }
+        // --------------------------------------------------------------
+
+
+
+        // --------------------------------------------------------------
+        // Maximize Meele
+
+        // Change Meele levels based on Ranged
+        if (maximizeOffence.isActive.value && alteringCategory === 'ranged') {
+          // Get difference in (Att + Strength) required to equate to the ranged equivalent
+          let delta = computeMeeleDeltaFromDistance(value);
+
+          // Split the delta -----
+          let numNotLocked = 0;
+          if (!lockedStats.attack)
+          ++numNotLocked;
+          if (!lockedStats.strength)
+          ++numNotLocked;
+
+          if (numNotLocked == 2) {
+            // Split required level between the two almost equally - favoring str
+            let half = Math.ceil(delta / 2);
+            value.strength = value.strength + half;
+            value.attack = value.attack + delta - half;
+          } else if (!lockedStats.attack) {
+            value.attack = value.attack + delta;
+          } else if (!lockedStats.strength) {
+            value.strength = value.strength + delta;
+          }
+        }
+
+        // Change Range based on meele
+        if (maximizeOffence.isActive.value && alteringCategory === 'meele') {
+          let rangedLvl = getRangeLevelFromWeight(computeMeeleOffense(value));
+
+          // Ranged and Magic are equivalent
+          value.ranged = rangedLvl;
+          value.magic = rangedLvl;
+        }
+        // --------------------------------------------------------------
+
+
+
+
+        return value;
+      };
+      input = {
+        lvl: {
+          ref: stats,
+          sanitize: statUtils.sanitizeLevel,
+          apply: statUtils.applyStats,
+          mutator: computedLevelMutator,
+          conversions: {
+            exp: statUtils.levelToXp } },
+
+
+        exp: {
+          ref: exp,
+          sanitize: statUtils.sanitizeExp,
+          apply: statUtils.applyStats,
+          conversions: {
+            lvl: statUtils.xpToLevel } } };
+
+
+
+
+      let calcValues = makeSyncObj(input);
+      let syncedStats = calcValues.lvl.computed;
+      let syncedExp = calcValues.exp.computed;
+      let updateSyncedStats = calcValues.lvl.update;
+      let updateSyncedExp = calcValues.exp.update;
+
+      // When toggled on set to max value
+      watch(linkedDistanceOffence.isActive, (oldVal, newVal) => {
+        if (oldVal != newVal && newVal) {
+          let ref = calcValues.lvl.computed;
+          ref.value.ranged = ref.value.magic = Math.max(ref.value.ranged, ref.value.magic);
+        }
+      });
+
+
+
+      // Update synced values when estimateHitpoints is toggled
+      watch([estimateHitpoints.isActive, maximizeOffence.isActive], (oldVal, newVal) => {
+        if (oldVal != newVal) {
+          calcValues.lvl.computed.value = calcValues.lvl.computed.value;
+        }
+      });
+
+
+
+      // Action for "Use Stats"
+      let applyStatsToCalc = newStats => {
+
+        // Remove locks and linked values
+        linkedDistanceOffence.isActive.value = false;
+        maximizeOffence.isActive.value = false;
+        Object.keys(lockedStats).map(key => {
+          lockedStats[key] = false;
+        });
+
+        // Update stats
+        baseValues.lvl.apply(newStats);
+        calcValues.lvl.apply(newStats);
+      };
+
+
+
+
 
       // Close Range
-      var meleeOffense = computed(() => (stats.attack + stats.strength) * scaler);
+      var meleeOffense = computed(() => computeMeeleOffense(syncedStats.value));
 
-      let defWeight = computed(() => stats.defence + stats.hitpoints);
-      let baseWeight = computed(() => (defWeight.value + Math.floor(stats.prayer / 2)) / 4);
+      let defWeight = computed(() => computeDefenceWeight(syncedStats.value));
+      let prayerWeight = computed(() => Math.floor(syncedStats.value.prayer / 8));
+      let baseWeight = computed(() => defWeight.value + prayerWeight.value);
 
 
       // Distance
-      var rangeWeight = computed(() => Math.floor(stats.ranged * 1.5) * scaler);
-      var mageWeight = computed(() => Math.floor(stats.magic * 1.5) * scaler);
-      var distanceOffence = computed(() => Math.max(rangeWeight.value, mageWeight.value));
+      var rangeWeight = computed(() => computeRangeWeight(syncedStats.value));
+      var mageWeight = computed(() => computeMagicWeight(syncedStats.value));
+      var distanceOffence = computed(() => computeDistanceOffence(syncedStats.value));
 
       var cmbLvl = computed(() => {
         var max = Math.max(meleeOffense.value, distanceOffence.value);
@@ -859,83 +1293,24 @@ new Vue({
       //===========================================================
 
       // Take ranged and mage and find meele stats which won't increase the combat lvl at all
-      let syncMeeleToDistance = ref(false);
-      watch(distanceOffence, (newVal, oldVal) => {
-        if (syncMeeleToDistance.value && newVal != oldVal) {
-          let delta = statUtils.clampLevel(distanceOffence.value / scaler - stats.attack);
-
-          let numNotLocked = 0;
-          if (!lockedStats.attack)
-          ++numNotLocked;
-          if (!lockedStats.strength)
-          ++numNotLocked;
-
-          if (numNotLocked == 2) {
-            // Split required level between the two almost equally - favoring str
-            let half = Math.ceil(delta / 2);
-            stats.strength = half;
-            stats.attack = delta - half;
-
-          } else if (!lockedStats.attack) {
-            stats.attack = delta;
-          } else if (!lockedStats.strength) {
-            stats.strength = delta;
-          }
-
-        }
-      });
-
-      // Take the meele stats and find the maximal ranged or mage level 
-      const syncDistanceToMeele = ref(false);
-      var distanceOffenceEquivalent = computed(() => statUtils.clampLevel(Math.floor(meleeOffense.value / scaler / 1.5)));
-      watch([syncDistanceToMeele, meleeOffense, distanceOffenceEquivalent, () => lockedStats], (newVal, oldVal) => {
-        if (syncDistanceToMeele.value && newVal && newVal !== oldVal) {
-          stats.ranged = distanceOffenceEquivalent.value;
-          stats.magic = distanceOffenceEquivalent.value;
-        }
-      });
-
-
-      // Link range and magic together since only the highest one matters
-      let linkedDistanceOffence = makeLinkedValueToggle(false, stats, 'magic', stats, 'ranged', 'max');
-
-
-
-      // Toggle Sync methods
-      watch([syncMeeleToDistance, () => lockedStats], (newVal, oldVal) => {
-        if (syncMeeleToDistance.value)
-        syncDistanceToMeele.value = !syncMeeleToDistance.value;
-      });
-
-      watch(syncDistanceToMeele, (newVal, oldVal) => {
-        if (newVal)
-        syncMeeleToDistance.value = !syncDistanceToMeele.value;
-      });
-      //-----------------------------------------------------------
 
 
 
 
-      // Store the original values
-      const oringinalStats = statUtils.makeStats({});
+
+      let deltaValues = computed(() => {
+        let delta = {
+          lvl: {},
+          exp: {} };
 
 
-      // Action for "Use Stats"
-      let applyStatsToCalc = newStats => {
-
-        // Remove locks and linked values
-        linkedDistanceOffence.isActive.value = false;
-        syncMeeleToDistance.value = false;
-        syncDistanceToMeele.value = false;
-        Object.keys(lockedStats).map(key => {
-          lockedStats[key] = false;
+        statUtils.combatStatKeys.map(key => {
+          delta.lvl[key] = calcValues.lvl.computed.value[key] - baseValues.lvl.computed.value[key];
+          delta.exp[key] = calcValues.exp.computed.value[key] - baseValues.exp.computed.value[key];
         });
 
-        // Update stats
-        statUtils.applyStats(stats, newStats);
-
-        statUtils.applyStats(oringinalStats, newStats);
-      };
+        return delta;
+      });
 
 
 
@@ -944,23 +1319,39 @@ new Vue({
 
       return {
 
+        // Player Stats Tabs
         tabset: useTabset([
-        { label: 'Level', key: 'lvl', icon: 'mdi-chart-bar' },
-        { label: 'Experience', key: 'exp', icon: 'mdi-school' }]),
+        { label: 'Lookup', key: 'lookup', icon: 'mdi-magnify' },
+        { label: 'Levels', key: 'lvl', icon: 'mdi-chart-bar' },
+        { label: 'Experience', key: 'exp', icon: 'mdi-school' }],
+        'lvl'),
 
 
-        // Sync modes
-        syncMeeleToDistance,
-        syncDistanceToMeele,
-
-        oringinalStats,
-        stats,
-        lockedStats,
-
+        // Combat level
         cmbLvl,
 
+        // Base values for the calc brought over from the player stats input
+        baseValues,
+        lockedStats,
+
+        // Preform optimizations on the stats
         linkedDistanceOffence,
-        distanceOffenceEquivalent,
+        maximizeOffence,
+        estimateHitpoints,
+
+
+        // Calculator Stats
+        calcValues,
+        syncedStats,
+        syncedExp,
+        updateSyncedStats,
+        updateSyncedExp,
+
+
+        // Delta between base and CalcValues
+        deltaValues,
+
+
         //distanceOffence,
         //meleeOffense,
 
@@ -988,65 +1379,24 @@ new Vue({
         datasets: [
         {
           label: 'Stats',
-          data: order.map(skill => combatCalc.stats[skill]) }] };
+          data: order.map(skill => combatCalc.calcValues.lvl.computed.value[skill]) }] };
 
 
 
     });
-    useRadarChart('myChart', chartData);
+    let { redraw: redrawChart } = useRadarChart('myChart', chartData);
     //----------------------------------------------
 
 
-    //----------------------------------------------
-    // Tick Labels
-    let useStatTickLabels = () => {
-      let statTickLabels = reactive({
-        attack: [],
-        strength: [],
-        defence: [],
-        hitpoints: [],
-        prayer: [],
-        ranged: [],
-        magic: [] });
 
 
 
-      //let indicator = '⬤'; // used to maybe indicate the original level '↑' alt
-      for (let i = 1; i <= 99; ++i) {
 
-        let isNotch = i % 10 == 0;
-        statTickLabels.attack.push(isNotch ? i : null);
-        statTickLabels.strength.push(isNotch ? i : null);
-        statTickLabels.defence.push(isNotch ? i : null);
-        if (i >= 10)
-        statTickLabels.hitpoints.push(isNotch ? i : null);
-        statTickLabels.prayer.push(isNotch ? i : null);
-        statTickLabels.ranged.push(isNotch ? i : null);
-        statTickLabels.magic.push(isNotch ? i : null);
-        /*
-                                                       statTickLabels.attack.push([1, 40, 60, 70, 75, 80].includes(i) ? i : null);      
-                                                       statTickLabels.strength.push([50, 60, 70, 75].includes(i) ? i : null);    
-                                                       statTickLabels.defence.push([10, 40, 45, 50, 60, 70, 75, 80].includes(i) ? i : null);    
-                                                       if(i >= 10)
-                                                         statTickLabels.hitpoints.push([50].includes(i) ? i : null);    
-                                                       statTickLabels.prayer.push([25, 43, 52, 74].includes(i) ? i : null);      
-                                                       statTickLabels.ranged.push([40, 70, 75].includes(i) ? i : null);
-                                                       statTickLabels.magic.push([35, 59, 75, 94].includes(i) ? i : null);
-                                                       //*/
-      }
-      let showLabels = ref(false);
-
-      return {
-        showLabels,
-        statTickLabels };
-
-    };
-    //----------------------------------------------
 
 
 
     // Make a toggle to sync the player stats to the calculator
-    let liveStatSync = makeLiveSync(true, combatCalc.stats, playerStats);
+    let liveStatSync = useToggleWatchCallback(true, playerStats, val => combatCalc.applyStatsToCalc(val));
     let { isActive: isLiveStatSync, toggle: toggleLiveStatSync } = liveStatSync;
 
     let storedStats = useSavableStats(playerStats);
@@ -1055,7 +1405,7 @@ new Vue({
 
 
     let applyStatsToPlayer = newStats => {
-      c_playerStats.value = newStats;
+      playerValues.lvl.computed.value = newStats;
     };
 
     let playerStatsSidebar = useToggle(false);
@@ -1073,16 +1423,61 @@ new Vue({
 
 
     let c_totalExp = computed(() => {
-      return statUtils.calculateTotalExp(c_playerExp.value);
+      return statUtils.calculateTotalExp(playerValues.exp.computed.value);
     });
 
 
-    let log = (...a) => {console.log(...a);};
+
+    //----------------------------------------------
+    // Tick Labels
+    let useStatTickLabels = baseValues => {
+
+      let skillSliderLabels = computed(() => {
+
+        // Get base levels - Will add an label to indicate the base level
+        let baseLevels = baseValues.value;
+
+        let result = {
+          attack: [],
+          strength: [],
+          defence: [],
+          hitpoints: [],
+          prayer: [],
+          ranged: [],
+          magic: [] };
+
+
+        let normalSkills = ['attack', 'strength', 'ranged', 'magic', 'defence', 'prayer'];
+        let makeSkillLabel = (skill, i) => {
+          result[skill].push(baseLevels[skill] === i ? i : null);
+        };
+
+        // Iterate over all the values of the slider and place a label at the base level for each stat
+        for (let i = 1; i <= 99; ++i) {
+          normalSkills.map(skill => makeSkillLabel(skill, i));
+
+          // Hitpoints minimum level is always 10
+          if (i >= 10)
+          makeSkillLabel('hitpoints', i);
+        }
+        return result;
+      });
+
+
+      return {
+        skillSliderLabels };
+
+    };
+    //----------------------------------------------
+
+
+
     return {
       playerStatsSidebar,
       cardStyle,
 
-      log,
+      redrawChart,
+
 
       // Icons
       lockIcon,
@@ -1090,13 +1485,11 @@ new Vue({
       skillIcons,
 
       // Stored presets
+      playerValues,
       accountConfigs,
       storedStats,
       playerStats,
-      c_playerExp,
       playerExp,
-      c_totalExp,
-      c_playerStats,
       applyStatsToPlayer,
 
       // Sync stats to calc
@@ -1104,7 +1497,7 @@ new Vue({
 
       // Combat Calculations
       combatCalc,
-      ...useStatTickLabels() };
+      ...useStatTickLabels(combatCalc.baseValues.lvl.computed) };
 
   },
   data() {

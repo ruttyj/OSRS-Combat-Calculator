@@ -1,8 +1,23 @@
+
+/* Add ticks to base value labels */
+.v-slider__tick-label:before {
+    content: '';
+    background-color: rgba(0, 0, 0, .26);
+    height: 10px;
+    width: 1px;
+    display: block;
+    margin: auto;
+    transform: translate(100%, calc(-100% - 2px));
+}
+
+
+
+
 [v-cloak] {display: none}
 
 
 td.skill_slider_cell {
-  padding: 20px 0px;
+  padding-bottom: 20px;
 }
 
 td.skill_label{
