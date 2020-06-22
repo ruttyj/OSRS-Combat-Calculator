@@ -15,3 +15,5 @@ Features currently include:
  A Pen created at CodePen.io. Original URL: [https://codepen.io/RuttyJ/full/MWwoQZw](https://codepen.io/RuttyJ/full/MWwoQZw).
 ![https://codepen.io/RuttyJ/full/MWwoQZw](https://github.com/ruttyj/OSRS_Combat_Calc/blob/master/docs/screenshot.png?raw=true "Image")
 
+
+(https://vignette.wikia.nocookie.net/2007scape/images/7/74/Default_login_screen.png/revision/latest/scale-to-width-down/340?cb=20180225003823 "Image")
